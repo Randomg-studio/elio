@@ -233,3 +233,6 @@ body.es-invitado .acceso-botones{display:flex}
 }
 .sugerencias button{align-items:flex-start;text-align:left;color:var(--texto)}
 .lat-logo img{width:40px;height:40px}
+.boton.secundario{margin-top:8px;background:transparent;border:1px solid var(--linea);color:#c3d1e8;font-weight:600;font-size:14px;padding:9px 14px;text-decoration:none}
+.boton.secundario:hover{color:#fff;border-color:rgba(0,198,235,.35)}
+.boton.secundario svg{width:16px;height:16px}
