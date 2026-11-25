@@ -144,7 +144,8 @@ function modoInvitado() {
   E.chats = []; pintarChats(); nuevoChat(); pintarRestantes();
 }
 function pintarRestantes() {
-  $('#texto').placeholder = E.restantes > 0 ? `¿En qué puedo ayudarte hoy? (te quedan ${E.restantes} preguntas sin cuenta)` : 'Crea tu cuenta gratis para seguir conversando';
+  const corto = matchMedia('(max-width:860px)').matches;
+  $('#texto').placeholder = E.restantes > 0 ? (corto ? `Pregúntale a Elio (${E.restantes} sin cuenta)` : `¿En qué puedo ayudarte hoy? (te quedan ${E.restantes} preguntas sin cuenta)`) : 'Crea tu cuenta gratis para seguir';
 }
 function pedirCuenta(msg) {
   $('#acceso').classList.remove('oculto'); modoAcceso('registro');

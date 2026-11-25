@@ -10,7 +10,7 @@
 <link rel="apple-touch-icon" href="img/Elio_Icono-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="app.css?v=4">
+<link rel="stylesheet" href="app.css?v=6">
 </head>
 <body>
 <!-- Iconos (SVG reutilizables) -->
@@ -43,7 +43,18 @@
     <symbol id="i-rayo" viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7Z"/></symbol>
   </defs>
 </svg>
-<div class="fondo" aria-hidden="true"><i class="onda o1"></i><i class="onda o2"></i><i class="onda o3"></i></div>
+<div class="fondo" aria-hidden="true">
+  <i class="estrellas"></i><i class="estelas"></i>
+  <svg class="montes" viewBox="0 0 1600 420" preserveAspectRatio="none">
+    <defs>
+      <linearGradient id="m1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b3a66" stop-opacity=".55"/><stop offset="1" stop-color="#0a1526" stop-opacity="0"/></linearGradient>
+      <linearGradient id="m2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#132c52" stop-opacity=".7"/><stop offset="1" stop-color="#070d1a" stop-opacity=".2"/></linearGradient>
+    </defs>
+    <path d="M0 260 C 90 230 150 200 230 215 S 340 170 420 175 S 560 220 640 195 S 780 140 880 150 S 1010 205 1100 190 S 1250 130 1340 140 S 1500 190 1600 175 L1600 420 L0 420 Z" fill="url(#m1)"/>
+    <path d="M0 330 C 120 300 220 280 330 292 S 520 262 640 275 S 820 305 940 290 S 1120 255 1240 268 S 1450 300 1600 285 L1600 420 L0 420 Z" fill="url(#m2)"/>
+  </svg>
+  <i class="bruma"></i>
+</div>
 
 <!-- Acceso -->
 <main id="acceso" class="oculto">
@@ -239,6 +250,6 @@
 
 <div id="toast" role="status"></div>
 <script src="config.js?v=1"></script>
-<script type="module" src="app.js?v=4"></script>
+<script type="module" src="app.js?v=5"></script>
 </body>
 </html>
