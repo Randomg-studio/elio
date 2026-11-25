@@ -1,40 +1,44 @@
-// ELIO by FlexGo Group · Función del servidor «elio-chat» (Supabase Edge Function, Deno)
-// Recibe el mensaje del usuario, revisa su plan y sus cupos, llama a Claude y devuelve la respuesta
-// palabra por palabra (SSE). Guarda la conversación y suma el uso y el gasto.
+// ELIO by FlexGo Group · Función del servidor «elio-chat» (Supabase Edge Function, Deno) · v2
+// - Invitados (sin cuenta): 4 preguntas al día, luego se les pide crear su cuenta gratis.
+// - Plan Libre e invitados: Gemini (si falla o no hay cuota, responde Claude Haiku como respaldo).
+// - Planes Impulso y Ultra: Claude (Haiku 5.5 rápido/razonamiento, Sonnet 5.5 experto).
 //
-// Secretos (Supabase › Edge Functions › Secrets; los pone el dueño, nunca van en el código):
-//   ANTHROPIC_API_KEY   clave de Anthropic solo para Elio (con límite de gasto en console.anthropic.com)
-// Opcionales: TOPE_LIBRE_USD (1), TOPE_TOTAL_USD (15), ORIGENES (lista separada por comas)
-// SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY los pone Supabase solo.
+// Secretos (Supabase › Edge Functions › Secrets; los pone el dueño, nunca en el código):
+//   ANTHROPIC_API_KEY  (obligatoria)   GEMINI_API_KEY (opcional; sin ella, todo va con Claude)
+// Opcionales: MODELO_GEMINI (gemini-3.8-flash-lite), TOPE_LIBRE_USD (1), TOPE_TOTAL_USD (15), ORIGENES, SAL_HUELLA
 import Anthropic from "npm:@anthropic-ai/sdk";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 type Nivel = "rapido" | "razonamiento" | "experto";
 type Plan = "libre" | "impulso" | "ultra";
 
-// Cupos cerrados por plan (aprobados el 25-nov-2026). null = no incluido.
 const CUPOS: Record<Plan, { rapidoDia: number; razonamientoMes: number | null; expertoMes: number | null; adjuntos: boolean }> = {
   libre: { rapidoDia: 20, razonamientoMes: null, expertoMes: null, adjuntos: false },
   impulso: { rapidoDia: 100, razonamientoMes: 300, expertoMes: null, adjuntos: true },
   ultra: { rapidoDia: 150, razonamientoMes: 800, expertoMes: 200, adjuntos: true },
 };
+const INVITADO_MAX = 4;
 
-// Modelo por nivel. Precios en US$ por millón de tokens (entrada / salida).
 const MODELOS: Record<Nivel, { model: string; effort: "low" | "medium" | "high"; maxTokens: number; pin: number; pout: number }> = {
   rapido: { model: "claude-haiku-5-5", effort: "low", maxTokens: 4000, pin: 0.1, pout: 0.5 },
   razonamiento: { model: "claude-haiku-5-5", effort: "high", maxTokens: 12000, pin: 0.1, pout: 0.5 },
   experto: { model: "claude-sonnet-5-5", effort: "medium", maxTokens: 16000, pin: 2, pout: 10 },
 };
+const GEMINI_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
+const GEMINI_MODELOS = (Deno.env.get("MODELO_GEMINI") ?? "gemini-3.8-flash-lite,gemini-3.8-flash").split(",").map((s) => s.trim()).filter(Boolean);
+const GEMINI_PRECIO = { pin: 0.1, pout: 0.4 };
 
 const TOPE_LIBRE = Number(Deno.env.get("TOPE_LIBRE_USD") ?? "1");
 const TOPE_TOTAL = Number(Deno.env.get("TOPE_TOTAL_USD") ?? "15");
 const ORIGENES = (Deno.env.get("ORIGENES") ?? "https://elio.flexgogroup.com,https://randomg-studio.github.io,http://localhost:8790")
   .split(",").map((s) => s.trim()).filter(Boolean);
+const SAL = Deno.env.get("SAL_HUELLA") ?? "elio-flexgo-2026";
 const TIPOS_ADJUNTO = ["image/png", "image/jpeg", "image/webp", "image/gif", "application/pdf"];
 
-const SISTEMA = `Eres Elio, el asistente de inteligencia artificial de FlexGo Group, una empresa peruana de tecnología.
-Hablas en el idioma de la persona (por defecto, español claro y cercano, sin jerga técnica innecesaria).
-Ayudas a estudiantes (tareas, explicaciones paso a paso, idiomas, matemáticas, redacción) y a empresas y profesionales (correos, propuestas, análisis, ideas de negocio, Excel, marketing, código).
+const SISTEMA = `Eres Elio, el asistente de inteligencia artificial de FlexGo Group, una empresa peruana de tecnología con base en Tarapoto.
+Hablas en el idioma de la persona (por defecto, español claro y cercano, como se habla en el Perú, sin jerga técnica innecesaria).
+Ayudas a estudiantes (tareas, explicaciones paso a paso, idiomas, matemáticas, redacción, preparación para exámenes) y a emprendedores, empresas y profesionales (correos, propuestas, análisis, ideas para vender más, Excel, marketing, trámites y código).
+Conoces bien la realidad peruana: soles, Yape y Plin, SUNAT y RUC, MYPE, regiones y costumbres; úsala cuando ayude.
 Reglas:
 - Ve al grano. Usa formato Markdown (títulos cortos, listas, tablas, bloques de código) solo cuando ayude.
 - Si no sabes algo o no estás seguro, dilo. No inventes datos, cifras, leyes ni fuentes.
@@ -57,36 +61,144 @@ function cors(origen: string | null): Record<string, string> {
 }
 const json = (c: Record<string, string>, status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { ...c, "Content-Type": "application/json" } });
-
 const hoyLima = () => new Date(new Date().toLocaleString("en-US", { timeZone: "America/Lima" })).toISOString().slice(0, 10);
+async function sha256(t: string) {
+  const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t));
+  return [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, "0")).join("");
+}
+
+type Msg = { role: "user" | "assistant"; content: string | Anthropic.ContentBlockParam[] };
+
+// Gemini en streaming. Devuelve el costo, o lanza error si no pudo empezar (para usar el respaldo).
+async function conGemini(mensajes: Msg[], sistema: string, alTexto: (t: string) => void): Promise<number> {
+  const contents = mensajes.map((m) => ({
+    role: m.role === "assistant" ? "model" : "user",
+    parts: typeof m.content === "string" ? [{ text: m.content }] : m.content.map((b) => b.type === "text" ? { text: b.text } : { text: "" }),
+  }));
+  let ultimoError = "sin modelo";
+  for (const modelo of GEMINI_MODELOS) {
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelo}:streamGenerateContent?alt=sse`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": GEMINI_KEY },
+      body: JSON.stringify({ contents, systemInstruction: { parts: [{ text: sistema }] }, generationConfig: { maxOutputTokens: 4000, temperature: 0.6 } }),
+      signal: AbortSignal.timeout(60000),
+    });
+    if (!r.ok || !r.body) { ultimoError = `${modelo} HTTP ${r.status}`; continue; }
+    const lector = r.body.getReader(), dec = new TextDecoder();
+    let buf = "", tin = 0, tout = 0, algo = false;
+    while (true) {
+      const { value, done } = await lector.read(); if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let i;
+      while ((i = buf.indexOf("\n")) >= 0) {
+        const linea = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
+        if (!linea.startsWith("data:")) continue;
+        try {
+          const d = JSON.parse(linea.slice(5));
+          const t = (d.candidates?.[0]?.content?.parts ?? []).map((p: { text?: string }) => p.text ?? "").join("");
+          if (t) { algo = true; alTexto(t); }
+          if (d.usageMetadata) { tin = d.usageMetadata.promptTokenCount ?? tin; tout = d.usageMetadata.candidatesTokenCount ?? tout; }
+        } catch { /* línea incompleta */ }
+      }
+    }
+    if (!algo) { ultimoError = `${modelo} sin texto`; continue; }
+    return (tin * GEMINI_PRECIO.pin + tout * GEMINI_PRECIO.pout) / 1_000_000;
+  }
+  throw new Error("Gemini no disponible: " + ultimoError);
+}
+
+// Claude en streaming. Devuelve el costo y el motivo de parada.
+async function conClaude(nivel: Nivel, mensajes: Msg[], extra: string, alTexto: (t: string) => void) {
+  const M = MODELOS[nivel];
+  const s = anthropic.messages.stream({
+    model: M.model,
+    max_tokens: M.maxTokens,
+    output_config: { effort: M.effort },
+    system: [
+      { type: "text", text: SISTEMA, cache_control: { type: "ephemeral" } },
+      { type: "text", text: extra },
+    ],
+    messages: mensajes as Anthropic.MessageParam[],
+  });
+  for await (const ev of s) {
+    if (ev.type === "content_block_delta" && ev.delta.type === "text_delta") alTexto(ev.delta.text);
+  }
+  const final = await s.finalMessage();
+  const u = final.usage;
+  const entrada = (u.input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0) * 1.25 + (u.cache_read_input_tokens ?? 0) * 0.1;
+  return { costo: (entrada * M.pin + (u.output_tokens ?? 0) * M.pout) / 1_000_000, parada: final.stop_reason };
+}
 
 Deno.serve(async (req) => {
   const c = cors(req.headers.get("origin"));
   if (req.method === "OPTIONS") return new Response("ok", { headers: c });
   if (req.method !== "POST") return json(c, 405, { mensaje: "Método no permitido" });
 
-  // 1. ¿Quién es?
-  const jwt = (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "");
-  const { data: auth } = await admin.auth.getUser(jwt);
-  const user = auth?.user;
-  if (!user) return json(c, 401, { mensaje: "Inicia sesión para usar Elio." });
-
-  // 2. Datos del pedido
-  let cuerpo: { conversacion?: string; texto?: string; nivel?: Nivel; adjunto?: { tipo: string; nombre: string; datos: string } };
+  let cuerpo: { conversacion?: string; texto?: string; nivel?: Nivel; invitado?: boolean; historial?: { rol: string; contenido: string }[]; adjunto?: { tipo: string; nombre: string; datos: string } };
   try { cuerpo = await req.json(); } catch { return json(c, 400, { mensaje: "Pedido inválido." }); }
   const texto = String(cuerpo.texto ?? "").trim();
-  const nivel: Nivel = (["rapido", "razonamiento", "experto"] as const).includes(cuerpo.nivel as Nivel) ? cuerpo.nivel as Nivel : "rapido";
   if (!texto && !cuerpo.adjunto) return json(c, 400, { mensaje: "Escribe un mensaje." });
   if (texto.length > 12000) return json(c, 400, { mensaje: "Tu mensaje es muy largo (máximo 12.000 caracteres)." });
 
-  // 3. Plan y cupos
-  const { data: plan } = await admin.rpc("elio_plan", { u: user.id });
-  const P = CUPOS[(plan as Plan) ?? "libre"] ?? CUPOS.libre;
-  const hoy = hoyLima(), mes = hoy.slice(0, 8) + "01";
+  // ¿Quién es? (si no hay sesión, es invitado)
+  const jwt = (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "");
+  const user = jwt.split(".").length === 3 ? (await admin.auth.getUser(jwt)).data?.user ?? null : null;
+  const hoy = hoyLima();
+  const { data: gasto } = await admin.from("gasto_dia").select("libre_usd,total_usd").eq("dia", hoy).maybeSingle();
+  if (gasto && Number(gasto.total_usd) >= TOPE_TOTAL)
+    return json(c, 503, { mensaje: "Elio está con mucha demanda en este momento. Inténtalo en unas horas." });
+
+  const enc = new TextEncoder();
+  const fecha = new Date().toLocaleDateString("es-PE", { timeZone: "America/Lima", dateStyle: "full" });
+
+  // ---------- Invitado: 4 preguntas sin cuenta ----------
+  if (!user) {
+    if (cuerpo.adjunto) return json(c, 401, { mensaje: "Crea tu cuenta gratis para subir archivos.", codigo: "registro" });
+    if (gasto && Number(gasto.libre_usd) >= TOPE_LIBRE)
+      return json(c, 503, { mensaje: "Las preguntas gratis de hoy se agotaron. Crea tu cuenta y vuelve mañana.", codigo: "registro" });
+    const ip = (req.headers.get("cf-connecting-ip") ?? req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || "sin-ip";
+    const huella = await sha256(`${SAL}|${ip}|${req.headers.get("user-agent") ?? ""}|${hoy}`);
+    const { data: usadas } = await admin.rpc("elio_invitado_cuantas", { h: huella });
+    if ((usadas ?? 0) >= INVITADO_MAX)
+      return json(c, 429, { mensaje: `Ya usaste tus ${INVITADO_MAX} preguntas sin cuenta. Crea tu cuenta gratis para seguir: tienes 20 mensajes al día y tu historial guardado.`, codigo: "registro" });
+    const hist: Msg[] = (Array.isArray(cuerpo.historial) ? cuerpo.historial : []).slice(-6)
+      .filter((m) => (m.rol === "user" || m.rol === "assistant") && typeof m.contenido === "string")
+      .map((m) => ({ role: m.rol as "user" | "assistant", content: m.contenido.slice(0, 3000) }));
+    while (hist.length && hist[0].role !== "user") hist.shift();
+    const mensajes: Msg[] = [...hist, { role: "user", content: texto }];
+    const extra = `Hoy es ${fecha} (hora de Perú). La persona todavía no tiene cuenta (invitado).`;
+    const stream = new ReadableStream({
+      async start(ctrl) {
+        const enviar = (o: unknown) => ctrl.enqueue(enc.encode(`data: ${JSON.stringify(o)}\n\n`));
+        let respuesta = "";
+        const alTexto = (t: string) => { respuesta += t; enviar({ tipo: "texto", t }); };
+        try {
+          let costo = 0;
+          try { if (!GEMINI_KEY) throw new Error("sin clave"); costo = await conGemini(mensajes, SISTEMA + "\n" + extra, alTexto); }
+          catch (e) { if (respuesta) throw e; console.warn("respaldo Claude:", String(e)); costo = (await conClaude("rapido", mensajes, extra, alTexto)).costo; }
+          const n = await admin.rpc("elio_invitado_sumar", { h: huella });
+          await admin.rpc("elio_sumar_gasto", { costo, es_libre: true });
+          enviar({ tipo: "invitado", restantes: Math.max(0, INVITADO_MAX - Number(n.data ?? INVITADO_MAX)) });
+          enviar({ tipo: "fin" });
+        } catch (e) {
+          console.error("elio-chat invitado", e);
+          enviar({ tipo: "error", mensaje: "No pude responder esta vez. Inténtalo de nuevo." });
+        } finally { ctrl.close(); }
+      },
+    });
+    return new Response(stream, { headers: { ...c, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" } });
+  }
+
+  // ---------- Usuario con cuenta ----------
+  const nivel: Nivel = (["rapido", "razonamiento", "experto"] as const).includes(cuerpo.nivel as Nivel) ? cuerpo.nivel as Nivel : "rapido";
+  const { data: planDb } = await admin.rpc("elio_plan", { u: user.id });
+  const plan: Plan = (planDb as Plan) ?? "libre";
+  const P = CUPOS[plan] ?? CUPOS.libre;
+  const mes = hoy.slice(0, 8) + "01";
   const { data: usos } = await admin.from("uso").select("dia,rapido,razonamiento,experto").eq("usuario", user.id).gte("dia", mes);
   const usoHoy = usos?.find((u) => u.dia === hoy) ?? { rapido: 0, razonamiento: 0, experto: 0 };
   const usoMes = (usos ?? []).reduce((a, u) => ({ razonamiento: a.razonamiento + u.razonamiento, experto: a.experto + u.experto }), { razonamiento: 0, experto: 0 });
-  const nombrePlan = { libre: "Libre", impulso: "Impulso", ultra: "Ultra" }[(plan as Plan) ?? "libre"];
+  const nombrePlan = { libre: "Libre", impulso: "Impulso", ultra: "Ultra" }[plan];
 
   if (nivel === "rapido" && usoHoy.rapido >= P.rapidoDia)
     return json(c, 429, { mensaje: `Usaste tus ${P.rapidoDia} mensajes de hoy del plan ${nombrePlan}. Vuelven mañana${plan === "ultra" ? "." : ", o sube de plan para tener más."}`, codigo: "cupo" });
@@ -96,15 +208,9 @@ Deno.serve(async (req) => {
     return json(c, 429, { mensaje: P.expertoMes === null ? "El modo Experto está en el plan Ultra." : `Usaste tus ${P.expertoMes} mensajes Expertos de este mes.`, codigo: "cupo" });
   if (cuerpo.adjunto && !P.adjuntos)
     return json(c, 403, { mensaje: "Subir archivos e imágenes está en los planes Impulso y Ultra.", codigo: "cupo" });
-
-  // Topes de seguridad del día
-  const { data: gasto } = await admin.from("gasto_dia").select("libre_usd,total_usd").eq("dia", hoy).maybeSingle();
-  if (gasto && Number(gasto.total_usd) >= TOPE_TOTAL)
-    return json(c, 503, { mensaje: "Elio está con mucha demanda en este momento. Inténtalo en unas horas." });
   if (plan === "libre" && gasto && Number(gasto.libre_usd) >= TOPE_LIBRE)
     return json(c, 503, { mensaje: "Los mensajes gratis de hoy se agotaron para todos. Vuelve mañana o pásate a Impulso.", codigo: "tope_libre" });
 
-  // 4. Adjunto (imagen o PDF)
   let bloqueAdjunto: Anthropic.ContentBlockParam | null = null;
   if (cuerpo.adjunto) {
     const { tipo, datos, nombre } = cuerpo.adjunto;
@@ -115,7 +221,6 @@ Deno.serve(async (req) => {
       : { type: "image", source: { type: "base64", media_type: tipo as "image/png", data: datos } };
   }
 
-  // 5. Conversación
   let convId = cuerpo.conversacion;
   if (convId) {
     const { data: conv } = await admin.from("conversaciones").select("id").eq("id", convId).eq("usuario", user.id).maybeSingle();
@@ -128,54 +233,36 @@ Deno.serve(async (req) => {
     convId = nueva.id;
   }
   const { data: previos } = await admin.from("mensajes").select("rol,contenido").eq("conversacion", convId).order("id", { ascending: false }).limit(16);
-  const historial: Anthropic.MessageParam[] = (previos ?? []).reverse().map((m) => ({ role: m.rol as "user" | "assistant", content: m.contenido.slice(0, 20000) }));
+  const historial: Msg[] = (previos ?? []).reverse().map((m) => ({ role: m.rol as "user" | "assistant", content: m.contenido.slice(0, 20000) }));
   while (historial.length && historial[0].role !== "user") historial.shift();
   const contenido: Anthropic.ContentBlockParam[] = [];
   if (bloqueAdjunto) contenido.push(bloqueAdjunto);
   contenido.push({ type: "text", text: texto || "Analiza este archivo." });
-  const mensajes: Anthropic.MessageParam[] = [...historial, { role: "user", content: contenido }];
+  const mensajes: Msg[] = [...historial, { role: "user", content: contenido }];
+  const extra = `Hoy es ${fecha} (hora de Perú). Plan del usuario: ${nombrePlan}.`;
 
-  // 6. Llamar a Claude y transmitir
-  const M = MODELOS[nivel];
-  const fecha = new Date().toLocaleDateString("es-PE", { timeZone: "America/Lima", dateStyle: "full" });
-  const enc = new TextEncoder();
   const stream = new ReadableStream({
     async start(ctrl) {
       const enviar = (o: unknown) => ctrl.enqueue(enc.encode(`data: ${JSON.stringify(o)}\n\n`));
       enviar({ tipo: "conv", id: convId });
       let respuesta = "";
+      const alTexto = (t: string) => { respuesta += t; enviar({ tipo: "texto", t }); };
       try {
-        const s = anthropic.messages.stream({
-          model: M.model,
-          max_tokens: M.maxTokens,
-          output_config: { effort: M.effort },
-          system: [
-            { type: "text", text: SISTEMA, cache_control: { type: "ephemeral" } },
-            { type: "text", text: `Hoy es ${fecha} (hora de Perú). Plan del usuario: ${nombrePlan}.` },
-          ],
-          messages: mensajes,
-        });
-        for await (const ev of s) {
-          if (ev.type === "content_block_delta" && ev.delta.type === "text_delta") {
-            respuesta += ev.delta.text; enviar({ tipo: "texto", t: ev.delta.text });
-          }
+        let costo = 0, parada: string | null = null;
+        if (plan === "libre" && GEMINI_KEY && !bloqueAdjunto) {
+          try { costo = await conGemini(mensajes, SISTEMA + "\n" + extra, alTexto); }
+          catch (e) { if (respuesta) throw e; console.warn("respaldo Claude:", String(e)); ({ costo, parada } = await conClaude(nivel, mensajes, extra, alTexto)); }
+        } else {
+          ({ costo, parada } = await conClaude(nivel, mensajes, extra, alTexto));
         }
-        const final = await s.finalMessage();
-        if (final.stop_reason === "refusal") {
-          const aviso = "Prefiero no ayudar con eso. ¿Te ayudo con otra cosa?";
-          if (!respuesta) { respuesta = aviso; enviar({ tipo: "texto", t: aviso }); }
-        }
-        if (final.stop_reason === "max_tokens") enviar({ tipo: "aviso", t: "La respuesta llegó al límite de largo. Escribe «continúa» para seguir." });
-        const u = final.usage;
-        const entrada = (u.input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0) * 1.25 + (u.cache_read_input_tokens ?? 0) * 0.1;
-        const costo = (entrada * M.pin + (u.output_tokens ?? 0) * M.pout) / 1_000_000;
-        // Guardar y sumar
+        if (parada === "refusal" && !respuesta) alTexto("Prefiero no ayudar con eso. ¿Te ayudo con otra cosa?");
+        if (parada === "max_tokens") enviar({ tipo: "aviso", t: "La respuesta llegó al límite de largo. Escribe «continúa» para seguir." });
         await admin.from("mensajes").insert([
           { conversacion: convId, usuario: user.id, rol: "user", contenido: texto || "(archivo)", nivel, adjunto: cuerpo.adjunto?.nombre ?? null },
           { conversacion: convId, usuario: user.id, rol: "assistant", contenido: respuesta || "…", nivel },
         ]);
         await admin.from("conversaciones").update({ actualizado: new Date().toISOString() }).eq("id", convId);
-        await admin.rpc("elio_sumar_uso", { u: user.id, nivel, costo, es_libre: plan === "libre" || !plan });
+        await admin.rpc("elio_sumar_uso", { u: user.id, nivel, costo, es_libre: plan === "libre" });
         enviar({ tipo: "fin" });
       } catch (e) {
         console.error("elio-chat", e instanceof Anthropic.APIError ? `${e.status} ${e.message}` : e);
@@ -183,9 +270,7 @@ Deno.serve(async (req) => {
           : e instanceof Anthropic.AuthenticationError ? "Elio está en mantenimiento. Inténtalo en un rato."
           : "No pude responder esta vez. Inténtalo de nuevo.";
         enviar({ tipo: "error", mensaje: msg });
-      } finally {
-        ctrl.close();
-      }
+      } finally { ctrl.close(); }
     },
   });
   return new Response(stream, { headers: { ...c, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" } });

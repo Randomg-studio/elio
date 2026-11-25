@@ -10,12 +10,13 @@
 <link rel="apple-touch-icon" href="img/Elio_Icono-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="app.css?v=2">
+<link rel="stylesheet" href="app.css?v=3">
 </head>
 <body>
 <!-- Acceso -->
 <main id="acceso" class="oculto">
   <section class="acceso-caja">
+    <button class="icono cerrar-acceso" id="cerrar-acceso" type="button" aria-label="Seguir sin cuenta">✕</button>
     <img src="img/Elio_Principal-760.webp" alt="Elio by FlexGo Group" class="acceso-logo" width="380">
     <p class="acceso-sub">Tu inteligencia artificial para estudiar, trabajar y crear.</p>
     <div class="pestanas" role="tablist">
@@ -57,6 +58,7 @@
     </div>
     <button class="boton nuevo" id="nuevo-chat">＋ Nuevo chat</button>
     <nav id="lista-chats" aria-label="Tus conversaciones"></nav>
+    <div class="lat-invitado"><b>Guarda tus chats</b><p>Crea tu cuenta gratis: 20 mensajes al día, historial y más.</p><button class="boton mejora" id="lat-registro">Regístrate gratis</button></div>
     <div class="lat-plan">
       <div class="plan-fila"><span id="plan-nombre" class="insignia">Libre</span><small id="plan-vence"></small></div>
       <div id="cupos"></div>
@@ -74,6 +76,7 @@
       <button class="icono solo-movil" id="abrir-lateral" aria-label="Abrir menú">☰</button>
       <h1 id="titulo-chat">Nuevo chat</h1>
       <a class="flexgo" href="https://flexgogroup.com" target="_blank" rel="noopener">by FlexGo Group</a>
+      <div class="acceso-botones"><button class="boton chico" id="b-entrar">Iniciar sesión</button><button class="boton chico principal" id="b-registro">Regístrate gratis</button></div>
     </header>
 
     <div id="conversacion" aria-live="polite">
@@ -165,6 +168,6 @@
 
 <div id="toast" role="status"></div>
 <script src="config.js?v=1"></script>
-<script type="module" src="app.js?v=2"></script>
+<script type="module" src="app.js?v=3"></script>
 </body>
 </html>
