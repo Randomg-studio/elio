@@ -22,7 +22,15 @@ const md = (t) => DOMPurify.sanitize(marked.parse(t || ''), { ADD_ATTR: ['target
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('ver'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('ver'), 3200); }
 
-const sb = CFG.SUPABASE_URL ? createClient(CFG.SUPABASE_URL, CFG.SUPABASE_KEY) : null;
+const almacen = (() => {
+  const donde = () => { try { return localStorage.getItem('elio_recordar') === '0' ? sessionStorage : localStorage; } catch (e) { return null; } };
+  return {
+    getItem: (k) => { try { return donde()?.getItem(k) ?? null; } catch (e) { return null; } },
+    setItem: (k, v) => { try { donde()?.setItem(k, v); } catch (e) {} },
+    removeItem: (k) => { try { localStorage.removeItem(k); sessionStorage.removeItem(k); } catch (e) {} },
+  };
+})();
+const sb = CFG.SUPABASE_URL ? createClient(CFG.SUPABASE_URL, CFG.SUPABASE_KEY, { auth: { storage: almacen } }) : null;
 const E = { invitado: false, historialInv: [], restantes: 4, sesion: null, estado: null, chats: [], conv: null, nivel: 'rapido', adjunto: null, enviando: false };
 
 // ---------- Acceso ----------
@@ -31,14 +39,19 @@ function modoAcceso(m) {
   modo = m;
   $('#acceso').classList.toggle('registro', m === 'registro');
   $('#acceso').classList.toggle('olvido', m === 'olvido');
-  $$('.pestanas button').forEach((b) => b.classList.toggle('on', b.dataset.modo === (m === 'olvido' ? 'entrar' : m)));
-  $('#acceso-btn').textContent = { entrar: 'Entrar', registro: 'Crear mi cuenta', olvido: 'Enviarme el enlace' }[m];
-  $('#olvide').textContent = m === 'olvido' ? 'Volver a iniciar sesión' : 'Olvidé mi contraseña';
+  $('#acceso-titulo').textContent = { entrar: 'Bienvenido a Elio', registro: 'Crea tu cuenta gratis', olvido: 'Recupera tu contraseña' }[m];
+  $('#acceso-sub').textContent = { entrar: 'Inicia sesión para continuar', registro: '20 mensajes al día y tu historial guardado', olvido: 'Te enviaremos un enlace a tu correo' }[m];
+  $('#acceso-btn span').textContent = { entrar: 'Iniciar sesión', registro: 'Crear mi cuenta', olvido: 'Enviarme el enlace' }[m];
+  $('#cambiar-modo').innerHTML = m === 'entrar'
+    ? '<span>¿Aún no tienes una cuenta?</span> <button class="enlace" type="button" data-ir-modo="registro">Crear cuenta</button>'
+    : '<span>¿Ya tienes una cuenta?</span> <button class="enlace" type="button" data-ir-modo="entrar">Iniciar sesión</button>';
+  $('.separador').classList.toggle('oculto', m === 'olvido'); $('#s-google').classList.toggle('oculto', m === 'olvido');
   $('#acceso-aviso').textContent = ''; $('#acceso-aviso').classList.remove('ok');
   $('#f-acceso [name=clave]').autocomplete = m === 'registro' ? 'new-password' : 'current-password';
 }
-$$('.pestanas button').forEach((b) => b.addEventListener('click', () => modoAcceso(b.dataset.modo)));
-$('#olvide').addEventListener('click', () => modoAcceso(modo === 'olvido' ? 'entrar' : 'olvido'));
+$('#cambiar-modo').addEventListener('click', (e) => { const b = e.target.closest('[data-ir-modo]'); if (b) modoAcceso(b.dataset.irModo); });
+$('#olvide').addEventListener('click', () => modoAcceso('olvido'));
+$('#s-google').addEventListener('click', () => toast('Iniciar con Google llega muy pronto. Por ahora usa tu correo.'));
 
 $('#f-acceso').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -53,6 +66,7 @@ $('#f-acceso').addEventListener('submit', async (e) => {
   btn.disabled = true;
   try {
     if (modo === 'entrar') {
+      try { localStorage.setItem('elio_recordar', f.recordar.checked ? '1' : '0'); } catch (e) {}
       const { error } = await sb.auth.signInWithPassword({ email: correo, password: clave });
       if (error) throw new Error(/confirm/i.test(error.message) ? 'Primero confirma tu correo: revisa tu bandeja (y la carpeta de spam).' : 'Correo o contraseña incorrectos.');
     } else if (modo === 'registro') {
@@ -81,7 +95,7 @@ $('#f-nueva').addEventListener('submit', async (e) => {
 // ---------- Contraseñas: ver/ocultar y medidor de fuerza ----------
 document.querySelectorAll('.ojo').forEach((b) => b.addEventListener('click', () => {
   const inp = b.previousElementSibling, ver = inp.type === 'password';
-  inp.type = ver ? 'text' : 'password'; b.textContent = ver ? '🙈' : '👁';
+  inp.type = ver ? 'text' : 'password'; b.innerHTML = `<svg><use href="#i-${ver ? 'ojo' : 'ojo-no'}"/></svg>`;
   b.setAttribute('aria-label', ver ? 'Ocultar contraseña' : 'Mostrar contraseña');
 }));
 function fuerzaClave(c) {
@@ -125,12 +139,12 @@ function modoInvitado() {
   E.invitado = true; E.historialInv = []; document.body.classList.add('es-invitado');
   E.estado = { plan: 'invitado', nombre: '', hoy: { rapido: 0, razonamiento: 0, experto: 0 }, mes: { rapido: 0, razonamiento: 0, experto: 0 } };
   $('#acceso').classList.add('oculto'); $('#app').classList.remove('oculto');
-  $('#saludo').textContent = '¿En qué te ayudo hoy?';
+  $('#saludo').textContent = 'Tu asistente de inteligencia artificial para crear, analizar y potenciar tus ideas.';
   $$('.niveles button').forEach((b) => b.classList.toggle('bloq', b.dataset.nivel !== 'rapido'));
   E.chats = []; pintarChats(); nuevoChat(); pintarRestantes();
 }
 function pintarRestantes() {
-  $('#texto').placeholder = E.restantes > 0 ? `Pregúntale a Elio… (te quedan ${E.restantes} sin cuenta)` : 'Crea tu cuenta gratis para seguir conversando';
+  $('#texto').placeholder = E.restantes > 0 ? `¿En qué puedo ayudarte hoy? (te quedan ${E.restantes} preguntas sin cuenta)` : 'Crea tu cuenta gratis para seguir conversando';
 }
 function pedirCuenta(msg) {
   $('#acceso').classList.remove('oculto'); modoAcceso('registro');
@@ -154,8 +168,9 @@ async function cargarEstado() {
   if (sb) { const { data } = await sb.rpc('elio_mi_estado'); E.estado = data; }
   const s = E.estado; if (!s) return;
   $('#plan-nombre').textContent = NOMBRE_PLAN[s.plan] || 'Libre';
-  $('#plan-vence').textContent = s.plan !== 'libre' && s.plan_vence ? 'Hasta el ' + new Date(s.plan_vence + 'T12:00').toLocaleDateString('es-PE', { day: 'numeric', month: 'short' }) : '';
-  $('#lat-nombre').textContent = s.nombre || '';
+  $('#plan-vence').textContent = s.plan !== 'libre' && s.plan_vence ? ' · hasta el ' + new Date(s.plan_vence + 'T12:00').toLocaleDateString('es-PE', { day: 'numeric', month: 'short' }) : '';
+  $('#lat-nombre').textContent = s.nombre || 'Tu cuenta';
+  $('#iniciales').textContent = (s.nombre || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((x) => x[0].toUpperCase()).join('') || '?';
   $('#ir-admin').hidden = !s.es_admin;
   const C = CUPOS[s.plan] || CUPOS.libre;
   const fila = (t, usado, max, per) => max ? `<div class="cupo">${t}: ${usado} de ${max} ${per}<div class="b"><i style="width:${Math.min(100, (usado / max) * 100)}%"></i></div></div>` : '';
@@ -165,7 +180,7 @@ async function cargarEstado() {
   $$('.niveles button').forEach((b) => b.classList.toggle('bloq', !C[b.dataset.nivel]));
   $('.adjuntar').style.opacity = s.plan === 'libre' ? 0.5 : 1;
   const h = new Date().getHours();
-  $('#saludo').textContent = `${h < 12 ? 'Buenos días' : h < 19 ? 'Buenas tardes' : 'Buenas noches'}${s.nombre ? ', ' + s.nombre.split(' ')[0] : ''}. ¿En qué te ayudo?`;
+  $('#saludo').textContent = `${h < 12 ? 'Buenos días' : h < 19 ? 'Buenas tardes' : 'Buenas noches'}${s.nombre ? ', ' + s.nombre.split(' ')[0] : ''}. Soy tu asistente de inteligencia artificial para crear, analizar y potenciar tus ideas.`;
 }
 
 // ---------- Conversaciones ----------
@@ -174,10 +189,14 @@ async function cargarChats() {
   const { data } = await sb.from('conversaciones').select('id,titulo,actualizado').order('actualizado', { ascending: false }).limit(60);
   E.chats = data || []; pintarChats();
 }
+let verTodos = false;
 function pintarChats() {
-  $('#lista-chats').innerHTML = E.chats.length ? E.chats.map((c) => `<div class="chat-item ${c.id === E.conv ? 'on' : ''}" data-id="${c.id}"><button class="abrir" title="${esc(c.titulo)}">${esc(c.titulo)}</button><button class="icono borrar" aria-label="Borrar chat">🗑</button></div>`).join('')
-    : '<p style="color:#9fb0c8;font-size:13px;padding:6px 8px">Tus chats aparecerán aquí.</p>';
+  const lista = verTodos ? E.chats : E.chats.slice(0, 8);
+  $('#lista-chats').innerHTML = lista.length ? lista.map((c) => `<div class="chat-item ${c.id === E.conv ? 'on' : ''}" data-id="${c.id}"><button class="abrir" title="${esc(c.titulo)}"><svg><use href="#i-burbuja"/></svg><span>${esc(c.titulo)}</span></button><button class="icono borrar" aria-label="Borrar chat" title="Borrar chat"><svg><use href="#i-puntos"/></svg></button></div>`).join('')
+    : '<p class="vacio-chats">Aún no tienes conversaciones.</p>';
+  $('#ver-mas').classList.toggle('oculto', verTodos || E.chats.length <= 8);
 }
+$('#ver-mas').addEventListener('click', () => { verTodos = true; pintarChats(); });
 $('#lista-chats').addEventListener('click', async (e) => {
   const it = e.target.closest('.chat-item'); if (!it) return;
   if (e.target.closest('.borrar')) {
@@ -190,13 +209,13 @@ $('#lista-chats').addEventListener('click', async (e) => {
   abrirChat(it.dataset.id);
 });
 function nuevoChat() {
-  E.conv = null; $('#mensajes').innerHTML = ''; $('#vacio').classList.remove('oculto');
+  E.conv = null; $('#mensajes').innerHTML = ''; $('#vacio').classList.remove('oculto'); document.body.classList.add('vacio');
   $('#titulo-chat').textContent = 'Nuevo chat'; pintarChats(); cerrarLateral();
 }
 async function abrirChat(id) {
   E.conv = id; pintarChats(); cerrarLateral();
   const c = E.chats.find((x) => x.id === id); $('#titulo-chat').textContent = c?.titulo || 'Chat';
-  $('#mensajes').innerHTML = ''; $('#vacio').classList.add('oculto');
+  $('#mensajes').innerHTML = ''; $('#vacio').classList.add('oculto'); document.body.classList.remove('vacio');
   if (!sb) return;
   const { data } = await sb.from('mensajes').select('rol,contenido,adjunto').eq('conversacion', id).order('id').limit(200);
   for (const m of data || []) m.rol === 'user' ? burbujaYo(m.contenido, m.adjunto) : burbujaElio().pintar(m.contenido, true);
@@ -241,7 +260,7 @@ async function enviar(texto, adjunto) {
   const C = CUPOS[E.estado?.plan] || CUPOS.libre;
   if (!C[E.nivel]) { if (E.invitado) return pedirCuenta('Crea tu cuenta para usar los modos avanzados.'); toast(E.nivel === 'experto' ? 'El modo Experto está en el plan Ultra.' : 'El modo Razonamiento está en Impulso y Ultra.'); return abrirPlanes(); }
   E.enviando = true; $('#enviar').disabled = true;
-  $('#vacio').classList.add('oculto');
+  $('#vacio').classList.add('oculto'); document.body.classList.remove('vacio');
   burbujaYo(texto, adjunto?.nombre);
   const b = burbujaElio(); abajo();
   let acumulado = '';
@@ -306,13 +325,28 @@ $('#f-mensaje').addEventListener('submit', (e) => {
   const adj = E.adjunto; ta.value = ''; ta.style.height = 'auto'; quitarAdjunto();
   enviar(t, adj);
 });
-$$('.sugerencias button').forEach((b) => b.addEventListener('click', () => enviar(b.textContent, null)));
+$$('.sugerencias button').forEach((b) => b.addEventListener('click', () => enviar(b.dataset.prompt, null)));
 $$('.niveles button').forEach((b) => b.addEventListener('click', () => {
   const C = CUPOS[E.estado?.plan] || CUPOS.libre;
   if (!C[b.dataset.nivel] && E.invitado) return pedirCuenta('Crea tu cuenta para usar los modos avanzados.');
   if (!C[b.dataset.nivel]) { toast(b.dataset.nivel === 'experto' ? 'El modo Experto está en el plan Ultra.' : 'El modo Razonamiento está en Impulso y Ultra.'); return abrirPlanes(); }
   E.nivel = b.dataset.nivel; $$('.niveles button').forEach((x) => x.classList.toggle('on', x === b));
+  $('#modo-txt').textContent = { rapido: 'Rápido', razonamiento: 'Razonamiento', experto: 'Experto' }[E.nivel];
+  $('#niveles').classList.add('oculto');
 }));
+$('#b-modos').addEventListener('click', (e) => { e.stopPropagation(); $('#niveles').classList.toggle('oculto'); });
+$('#chip-modo').addEventListener('click', (e) => { e.stopPropagation(); $('#niveles').classList.toggle('oculto'); });
+$$('[data-pronto]').forEach((b) => b.addEventListener('click', () => toast(`${b.dataset.pronto}: muy pronto en Elio.`)));
+$('#campana').addEventListener('click', () => toast('No tienes notificaciones nuevas.'));
+$('#apps').addEventListener('click', (e) => { e.stopPropagation(); $('#menu-apps').classList.toggle('oculto'); });
+$('#tarjeta-usuario').addEventListener('click', (e) => { e.stopPropagation(); $('#menu-usuario').classList.toggle('oculto'); });
+addEventListener('click', (e) => {
+  if (!e.target.closest('#niveles')) $('#niveles').classList.add('oculto');
+  if (!e.target.closest('#menu-apps')) $('#menu-apps').classList.add('oculto');
+  if (!e.target.closest('#menu-usuario')) $('#menu-usuario').classList.add('oculto');
+});
+addEventListener('keydown', (e) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); nuevoChat(); $('#texto').focus(); } });
+$('#m-inicio').addEventListener('click', () => { nuevoChat(); });
 
 // Adjuntos
 $('#archivo').addEventListener('change', async (e) => {
@@ -382,9 +416,10 @@ $('#admin-pagos').addEventListener('click', async (e) => {
 });
 
 // ---------- Menú lateral (celular) y salir ----------
-function cerrarLateral() { $('#lateral').classList.remove('abierto'); }
-$('#abrir-lateral').addEventListener('click', () => $('#lateral').classList.add('abierto'));
-$('#cerrar-lateral').addEventListener('click', cerrarLateral);
+const esMovil = () => matchMedia('(max-width:860px)').matches;
+function cerrarLateral() { document.body.classList.remove('lat-abierto'); }
+$('#abrir-lateral').addEventListener('click', () => { if (esMovil()) document.body.classList.add('lat-abierto'); else document.body.classList.remove('lat-cerrado'); });
+$('#cerrar-lateral').addEventListener('click', () => { if (esMovil()) cerrarLateral(); else document.body.classList.add('lat-cerrado'); });
 $('#salir').addEventListener('click', async () => { if (sb) await sb.auth.signOut(); else location.reload(); });
 
 iniciar();

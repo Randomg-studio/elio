@@ -5,46 +5,87 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Elio · la IA de FlexGo Group</title>
 <meta name="description" content="Elio, el chat de inteligencia artificial de FlexGo Group, para estudiantes y empresas. Planes Libre, Impulso y Ultra.">
-<meta name="theme-color" content="#102449">
+<meta name="theme-color" content="#05070d">
 <link rel="icon" href="img/Elio_Icono-48.png">
 <link rel="apple-touch-icon" href="img/Elio_Icono-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="app.css?v=3">
+<link rel="stylesheet" href="app.css?v=4">
 </head>
 <body>
+<!-- Iconos (SVG reutilizables) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-correo" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></symbol>
+    <symbol id="i-candado" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+    <symbol id="i-persona" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+    <symbol id="i-ojo" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-ojo-no" viewBox="0 0 24 24"><path d="M3 3l18 18M10.6 10.6a3 3 0 0 0 4.2 4.2M9.9 5.2A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4.2M6.6 6.6A17 17 0 0 0 2 12s3.5 7 10 7a9.6 9.6 0 0 0 5.4-1.6"/></symbol>
+    <symbol id="i-flecha" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+    <symbol id="i-lapiz" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></symbol>
+    <symbol id="i-casa" viewBox="0 0 24 24"><path d="M3 11 12 4l9 7M5 10v10h14V10"/></symbol>
+    <symbol id="i-cuadros" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></symbol>
+    <symbol id="i-capas" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5 9-5ZM3 13l9 5 9-5M3 17.5l9 5 9-5"/></symbol>
+    <symbol id="i-carpeta" viewBox="0 0 24 24"><path d="M3 6a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></symbol>
+    <symbol id="i-burbuja" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4Z"/></symbol>
+    <symbol id="i-barras" viewBox="0 0 24 24"><path d="M5 20V12M12 20V5M19 20v-9"/></symbol>
+    <symbol id="i-foco" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9V16h7v-2.1A6 6 0 0 0 12 3Z"/></symbol>
+    <symbol id="i-mas" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-clip" viewBox="0 0 24 24"><path d="m21 11-8.5 8.5a5 5 0 0 1-7-7L14 4a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L15 7"/></symbol>
+    <symbol id="i-mundo" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></symbol>
+    <symbol id="i-micro" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></symbol>
+    <symbol id="i-enviar" viewBox="0 0 24 24"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4Z"/></symbol>
+    <symbol id="i-campana" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10 21a2 2 0 0 0 4 0"/></symbol>
+    <symbol id="i-panel" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></symbol>
+    <symbol id="i-abajo" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-derecha" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+    <symbol id="i-puntos" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></symbol>
+    <symbol id="i-rayo" viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7Z"/></symbol>
+  </defs>
+</svg>
+<div class="fondo" aria-hidden="true"><i class="onda o1"></i><i class="onda o2"></i><i class="onda o3"></i></div>
+
 <!-- Acceso -->
 <main id="acceso" class="oculto">
-  <section class="acceso-caja">
-    <button class="icono cerrar-acceso" id="cerrar-acceso" type="button" aria-label="Seguir sin cuenta">✕</button>
-    <img src="img/Elio_Principal-760.webp" alt="Elio by FlexGo Group" class="acceso-logo" width="380">
-    <p class="acceso-sub">Tu inteligencia artificial para estudiar, trabajar y crear.</p>
-    <div class="pestanas" role="tablist">
-      <button data-modo="entrar" class="on" role="tab">Iniciar sesión</button>
-      <button data-modo="registro" role="tab">Crear cuenta</button>
+  <section class="marca">
+    <div class="marca-logo">
+      <img src="img/Elio_Avatar-160.webp" alt="" width="132" height="132">
+      <div><b>Elio</b><span>— by <strong>Flex<em>Go</em></strong> Group —</span></div>
     </div>
+    <h1>Tu asistente de <span>inteligencia artificial</span></h1>
+    <p>Conversa, crea, analiza y potencia tus ideas en un solo lugar.</p>
+  </section>
+  <section class="acceso-caja vidrio">
+    <button class="icono cerrar-acceso" id="cerrar-acceso" type="button" aria-label="Seguir sin cuenta">✕</button>
+    <h2 id="acceso-titulo">Bienvenido a Elio</h2>
+    <p class="acceso-sub" id="acceso-sub">Inicia sesión para continuar</p>
     <form id="f-acceso" novalidate>
-      <label class="solo-registro">Tu nombre<input name="nombre" autocomplete="name" maxlength="40"></label>
-      <label>Correo<input name="correo" type="email" autocomplete="email" required></label>
-      <label class="sin-olvido">Contraseña<span class="clave-caja"><input name="clave" type="password" autocomplete="current-password" minlength="8" required><button type="button" class="ojo" aria-label="Mostrar contraseña">👁</button></span></label>
+      <label class="campo solo-registro"><svg><use href="#i-persona"/></svg><input name="nombre" autocomplete="name" maxlength="40" placeholder="Tu nombre" aria-label="Tu nombre"></label>
+      <label class="campo"><svg><use href="#i-correo"/></svg><input name="correo" type="email" autocomplete="email" required placeholder="Correo electrónico" aria-label="Correo electrónico"></label>
+      <label class="campo sin-olvido"><svg><use href="#i-candado"/></svg><input name="clave" type="password" autocomplete="current-password" minlength="8" required placeholder="Contraseña" aria-label="Contraseña"><button type="button" class="ojo" aria-label="Mostrar contraseña"><svg><use href="#i-ojo-no"/></svg></button></label>
       <div class="fuerza solo-registro" aria-live="polite"><div class="fuerza-barra"><i></i></div><small></small></div>
-      <label class="check solo-registro"><input type="checkbox" name="terminos"><span>Acepto los <a href="terminos.html" target="_blank">Términos</a> y la <a href="privacidad.html" target="_blank">Política de privacidad</a>. Si soy menor de 18 años, tengo permiso de mi madre, padre o tutor.</span></label>
+      <div class="fila-recordar sin-olvido solo-entrar">
+        <label class="check"><input type="checkbox" name="recordar" checked> Recordarme</label>
+        <button class="enlace" type="button" id="olvide">¿Olvidaste tu contraseña?</button>
+      </div>
+      <label class="check terminos solo-registro"><input type="checkbox" name="terminos"><span>Acepto los <a href="terminos.html" target="_blank">Términos</a> y la <a href="privacidad.html" target="_blank">Política de privacidad</a>. Si soy menor de 18 años, tengo permiso de mi madre, padre o tutor.</span></label>
       <p class="aviso" id="acceso-aviso" role="alert"></p>
-      <button class="boton principal" id="acceso-btn" type="submit">Entrar</button>
-      <button class="enlace" type="button" id="olvide">Olvidé mi contraseña</button>
+      <button class="boton principal grande" id="acceso-btn" type="submit"><span>Iniciar sesión</span><svg><use href="#i-flecha"/></svg></button>
+      <div class="separador"><span>o</span></div>
+      <button class="boton google" type="button" id="s-google"><svg viewBox="0 0 48 48" class="g"><path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3A12 12 0 1 1 24 12c3 0 5.8 1.1 7.9 3l5.7-5.7A20 20 0 1 0 44 24c0-1.3-.1-2.6-.4-3.9z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8A12 12 0 0 1 24 12c3 0 5.8 1.1 7.9 3l5.7-5.7A20 20 0 0 0 6.3 14.7z"/><path fill="#4CAF50" d="M24 44a20 20 0 0 0 13.5-5.2l-6.2-5.3A12 12 0 0 1 12.7 28l-6.5 5A20 20 0 0 0 24 44z"/><path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3a12 12 0 0 1-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.6-.4-3.9z"/></svg> Continuar con Google <em>Muy pronto</em></button>
+      <p class="cambiar" id="cambiar-modo"><span>¿Aún no tienes una cuenta?</span> <button class="enlace" type="button" data-ir-modo="registro">Crear cuenta</button></p>
     </form>
-    <p class="pie">by <b>FlexGo Group</b> · Hecho en Perú</p>
   </section>
 </main>
 
 <!-- Nueva contraseña (tras el enlace del correo) -->
 <div id="nueva-clave" class="modal oculto" role="dialog" aria-modal="true">
-  <form class="modal-caja" id="f-nueva">
+  <form class="modal-caja vidrio" id="f-nueva">
     <h2>Crea tu nueva contraseña</h2>
-    <label>Nueva contraseña<span class="clave-caja"><input name="clave" type="password" minlength="8" autocomplete="new-password" required><button type="button" class="ojo" aria-label="Mostrar contraseña">👁</button></span></label>
+    <label class="campo"><svg><use href="#i-candado"/></svg><input name="clave" type="password" minlength="8" autocomplete="new-password" required placeholder="Nueva contraseña" aria-label="Nueva contraseña"><button type="button" class="ojo" aria-label="Mostrar contraseña"><svg><use href="#i-ojo-no"/></svg></button></label>
     <div class="fuerza" aria-live="polite"><div class="fuerza-barra"><i></i></div><small></small></div>
     <p class="aviso" id="nueva-aviso"></p>
-    <button class="boton principal" type="submit">Guardar contraseña</button>
+    <button class="boton principal grande" type="submit"><span>Guardar contraseña</span></button>
   </form>
 </div>
 
@@ -52,58 +93,88 @@
 <div id="app" class="oculto">
   <aside id="lateral">
     <div class="lat-arriba">
-      <img src="img/Elio_Avatar-160.webp" alt="" width="34" height="34" class="lat-avatar">
-      <b>Elio</b>
-      <button class="icono solo-movil" id="cerrar-lateral" aria-label="Cerrar menú">✕</button>
+      <a class="lat-logo" href="./" aria-label="Elio, inicio"><img src="img/Elio_Avatar-160.webp" alt="" width="36" height="36"><b>Elio</b><small>by FlexGo Group</small></a>
+      <button class="icono" id="cerrar-lateral" aria-label="Ocultar menú"><svg><use href="#i-panel"/></svg></button>
     </div>
-    <button class="boton nuevo" id="nuevo-chat">＋ Nuevo chat</button>
-    <nav id="lista-chats" aria-label="Tus conversaciones"></nav>
-    <div class="lat-invitado"><b>Guarda tus chats</b><p>Crea tu cuenta gratis: 20 mensajes al día, historial y más.</p><button class="boton mejora" id="lat-registro">Regístrate gratis</button></div>
+    <button class="boton nuevo" id="nuevo-chat"><svg><use href="#i-lapiz"/></svg><span>Nuevo chat</span><kbd>⌘ K</kbd></button>
+    <nav class="menu" aria-label="Secciones">
+      <button class="on" id="m-inicio"><svg><use href="#i-casa"/></svg>Inicio</button>
+      <button data-pronto="Herramientas"><svg><use href="#i-cuadros"/></svg>Herramientas<em>Pronto</em></button>
+      <button data-pronto="Biblioteca"><svg><use href="#i-capas"/></svg>Biblioteca<em>Pronto</em></button>
+      <button data-pronto="Mis proyectos"><svg><use href="#i-carpeta"/></svg>Mis proyectos<em>Pronto</em></button>
+    </nav>
+    <div class="lat-recientes">
+      <p class="lat-titulo">Conversaciones recientes</p>
+      <nav id="lista-chats" aria-label="Tus conversaciones"></nav>
+      <button class="enlace ver-mas oculto" id="ver-mas"><svg><use href="#i-abajo"/></svg>Ver más</button>
+    </div>
+    <div class="lat-invitado vidrio"><b>Guarda tus chats</b><p>Crea tu cuenta gratis: 20 mensajes al día, historial y más.</p><button class="boton principal" id="lat-registro">Regístrate gratis</button></div>
     <div class="lat-plan">
-      <div class="plan-fila"><span id="plan-nombre" class="insignia">Libre</span><small id="plan-vence"></small></div>
       <div id="cupos"></div>
-      <button class="boton mejora" id="ver-planes">✦ Mejorar mi plan</button>
-    </div>
-    <div class="lat-abajo">
-      <button class="enlace" id="ir-admin" hidden>Panel de administración</button>
-      <span id="lat-nombre"></span>
-      <button class="enlace" id="salir">Cerrar sesión</button>
+      <button class="usuario vidrio" id="tarjeta-usuario" aria-haspopup="menu">
+        <span class="iniciales" id="iniciales">—</span>
+        <span class="u-datos"><b id="lat-nombre"></b><small>Plan <span id="plan-nombre">Libre</span><span id="plan-vence"></span></small></span>
+        <svg><use href="#i-derecha"/></svg>
+      </button>
+      <div class="menu-usuario vidrio oculto" id="menu-usuario" role="menu">
+        <button id="ver-planes" role="menuitem">✦ Mejorar mi plan</button>
+        <button id="ir-admin" role="menuitem" hidden>Panel de administración</button>
+        <a href="terminos.html" target="_blank" role="menuitem">Términos y privacidad</a>
+        <button id="salir" role="menuitem">Cerrar sesión</button>
+      </div>
     </div>
   </aside>
 
   <section id="principal">
     <header class="barra">
-      <button class="icono solo-movil" id="abrir-lateral" aria-label="Abrir menú">☰</button>
-      <h1 id="titulo-chat">Nuevo chat</h1>
-      <a class="flexgo" href="https://flexgogroup.com" target="_blank" rel="noopener">by FlexGo Group</a>
-      <div class="acceso-botones"><button class="boton chico" id="b-entrar">Iniciar sesión</button><button class="boton chico principal" id="b-registro">Regístrate gratis</button></div>
+      <button class="icono" id="abrir-lateral" aria-label="Mostrar menú"><svg><use href="#i-panel"/></svg></button>
+      <h1 id="titulo-chat" class="oculto-vacio">Nuevo chat</h1>
+      <div class="barra-der">
+        <div class="acceso-botones"><button class="boton chico" id="b-entrar">Iniciar sesión</button><button class="boton chico principal" id="b-registro">Regístrate gratis</button></div>
+        <button class="icono redondo" id="campana" aria-label="Notificaciones"><svg><use href="#i-campana"/></svg></button>
+        <button class="icono redondo" id="apps" aria-label="Apps de FlexGo" aria-haspopup="menu"><svg><use href="#i-cuadros"/></svg></button>
+        <div class="menu-apps vidrio oculto" id="menu-apps" role="menu">
+          <p>Apps de FlexGo Group</p>
+          <a href="https://flexgogroup.com/kivo.html" target="_blank" rel="noopener" role="menuitem"><b>Kivo</b><small>Agentes de IA para tu WhatsApp</small></a>
+          <a href="https://flexgogroup.com/logrin.html" target="_blank" rel="noopener" role="menuitem"><b>Logrin</b><small>Ventas, inventario y cobros</small></a>
+          <a href="https://flexgogroup.com/creago.html" target="_blank" rel="noopener" role="menuitem"><b>CreaGo</b><small>Contenido para redes con IA</small></a>
+          <a href="https://flexgogroup.com/eleva.html" target="_blank" rel="noopener" role="menuitem"><b>Eleva</b><small>Educación en tecnología e IA</small></a>
+          <a href="https://flexgogroup.com" target="_blank" rel="noopener" role="menuitem"><b>FlexGo Group</b><small>Todos los servicios</small></a>
+        </div>
+      </div>
     </header>
 
     <div id="conversacion" aria-live="polite">
       <div id="vacio">
-        <img src="img/Elio_Avatar-160.webp" alt="" width="96" height="96">
-        <h2 id="saludo">¿En qué te ayudo hoy?</h2>
+        <div class="hero-logo"><img src="img/Elio_Avatar-160.webp" alt="" width="104" height="104"><h2>Elio <span>IA</span></h2></div>
+        <p class="hero-sub" id="saludo">Tu asistente de inteligencia artificial para crear, analizar y potenciar tus ideas.</p>
         <div class="sugerencias">
-          <button>Explícame la fotosíntesis como si tuviera 12 años</button>
-          <button>Ayúdame a escribir un correo para pedir una cotización</button>
-          <button>Dame 5 ideas para vender más en mi negocio este mes</button>
-          <button>Resuelve paso a paso: 2x + 7 = 31</button>
+          <button class="vidrio" data-prompt="Ayúdame a redactar un texto. Primero pregúntame qué necesito: un correo, una publicación para redes, un ensayo o una carta."><span class="ico"><svg><use href="#i-lapiz"/></svg></span><b>Crear contenido</b><small>Redacta, mejora y adapta textos.</small></button>
+          <button class="vidrio" data-prompt="Quiero analizar unos datos. Explícame cómo puedo pasártelos (tabla, números o un archivo) y qué conclusiones podrías sacar."><span class="ico"><svg><use href="#i-barras"/></svg></span><b>Analizar datos</b><small>Interpreta información y obtén conclusiones.</small></button>
+          <button class="vidrio" data-prompt="Dame 5 ideas creativas y prácticas. Antes, pregúntame sobre qué tema: mi negocio, mis estudios o un proyecto."><span class="ico"><svg><use href="#i-foco"/></svg></span><b>Explorar ideas</b><small>Descubre nuevas propuestas, enfoques y soluciones.</small></button>
         </div>
       </div>
       <div id="mensajes"></div>
     </div>
 
-    <form id="f-mensaje" class="caja-mensaje">
+    <form id="f-mensaje" class="caja-mensaje vidrio">
       <div id="adjunto-vista" class="oculto"><span id="adjunto-nombre"></span><button type="button" class="icono" id="quitar-adjunto" aria-label="Quitar archivo">✕</button></div>
-      <textarea id="texto" rows="1" placeholder="Escríbele a Elio…" maxlength="12000" aria-label="Mensaje"></textarea>
+      <textarea id="texto" rows="1" placeholder="¿En qué puedo ayudarte hoy?" maxlength="12000" aria-label="Mensaje"></textarea>
       <div class="caja-abajo">
-        <label class="icono adjuntar" title="Subir imagen o PDF (Impulso y Ultra)" aria-label="Subir archivo">📎<input type="file" id="archivo" accept="image/png,image/jpeg,image/webp,image/gif,application/pdf" hidden></label>
-        <div class="niveles" role="radiogroup" aria-label="Modo de Elio">
-          <button type="button" data-nivel="rapido" class="on" title="Respuestas rápidas para el día a día">⚡ Rápido</button>
-          <button type="button" data-nivel="razonamiento" title="Piensa más antes de responder (Impulso y Ultra)">🧠 Razonamiento</button>
-          <button type="button" data-nivel="experto" title="El modelo más potente (Ultra)">★ Experto</button>
+        <div class="niveles-envoltura">
+          <button type="button" class="icono cuadro" id="b-modos" aria-label="Elegir modo" aria-haspopup="menu"><svg><use href="#i-mas"/></svg></button>
+          <div class="niveles vidrio oculto" id="niveles" role="menu" aria-label="Modo de Elio">
+            <button type="button" data-nivel="rapido" class="on" role="menuitemradio"><b>⚡ Rápido</b><small>Respuestas al instante</small></button>
+            <button type="button" data-nivel="razonamiento" role="menuitemradio"><b>🧠 Razonamiento</b><small>Piensa más · Impulso y Ultra</small></button>
+            <button type="button" data-nivel="experto" role="menuitemradio"><b>★ Experto</b><small>El más potente · Ultra</small></button>
+          </div>
         </div>
-        <button class="enviar" id="enviar" type="submit" aria-label="Enviar">➤</button>
+        <label class="icono cuadro adjuntar" title="Subir imagen o PDF (Impulso y Ultra)" aria-label="Subir archivo"><svg><use href="#i-clip"/></svg><input type="file" id="archivo" accept="image/png,image/jpeg,image/webp,image/gif,application/pdf" hidden></label>
+        <span class="chip" id="chip-modo"><svg><use href="#i-rayo"/></svg><span id="modo-txt">Rápido</span></span>
+        <button type="button" class="chip pronto" data-pronto="Buscar en la web"><svg><use href="#i-mundo"/></svg>Buscar en la web<em>Pronto</em></button>
+        <span class="espacio"></span>
+        <button type="button" class="icono cuadro" data-pronto="Dictado por voz" aria-label="Dictar por voz (muy pronto)"><svg><use href="#i-micro"/></svg></button>
+        <button class="enviar" id="enviar" type="submit" aria-label="Enviar"><svg><use href="#i-enviar"/></svg></button>
       </div>
     </form>
     <p class="nota-ia">Elio puede equivocarse. Revisa la información importante.</p>
@@ -112,7 +183,7 @@
 
 <!-- Planes -->
 <div id="planes" class="modal oculto" role="dialog" aria-modal="true" aria-labelledby="planes-t">
-  <div class="modal-caja ancha">
+  <div class="modal-caja ancha vidrio">
     <button class="icono cerrar" data-cerrar aria-label="Cerrar">✕</button>
     <h2 id="planes-t">Elige tu plan</h2>
     <div class="tarjetas">
@@ -139,7 +210,7 @@
 
 <!-- Pago por Yape -->
 <div id="pago" class="modal oculto" role="dialog" aria-modal="true" aria-labelledby="pago-t">
-  <form class="modal-caja" id="f-pago">
+  <form class="modal-caja vidrio" id="f-pago">
     <button class="icono cerrar" type="button" data-cerrar aria-label="Cerrar">✕</button>
     <h2 id="pago-t">Pagar con Yape</h2>
     <p>Plan <b id="pago-plan"></b> · 1 mes</p>
@@ -149,15 +220,15 @@
       <li>Copia el <b>número de operación</b> que te muestra Yape.</li>
       <li>Escríbelo aquí y envía. Te activamos el plan al confirmar el pago.</li>
     </ol>
-    <label>Número de operación<input name="operacion" inputmode="numeric" minlength="4" maxlength="30" required></label>
+    <label class="campo"><input name="operacion" inputmode="numeric" minlength="4" maxlength="30" required placeholder="Número de operación" aria-label="Número de operación"></label>
     <p class="aviso" id="pago-aviso"></p>
-    <button class="boton principal" type="submit">Ya yapeé · Enviar</button>
+    <button class="boton principal grande" type="submit"><span>Ya yapeé · Enviar</span></button>
   </form>
 </div>
 
 <!-- Administración -->
 <div id="admin" class="modal oculto" role="dialog" aria-modal="true" aria-labelledby="admin-t">
-  <div class="modal-caja ancha">
+  <div class="modal-caja ancha vidrio">
     <button class="icono cerrar" data-cerrar aria-label="Cerrar">✕</button>
     <h2 id="admin-t">Panel de Elio</h2>
     <div id="admin-resumen" class="resumen"></div>
@@ -168,6 +239,6 @@
 
 <div id="toast" role="status"></div>
 <script src="config.js?v=1"></script>
-<script type="module" src="app.js?v=3"></script>
+<script type="module" src="app.js?v=4"></script>
 </body>
 </html>
