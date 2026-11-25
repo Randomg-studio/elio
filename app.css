@@ -151,3 +151,12 @@ label.check input{margin-top:3px}
   .caja-mensaje{width:calc(100% - 16px)}
 }
 @media (prefers-color-scheme:dark){.acceso-logo{background:#fff;border-radius:16px;padding:8px 12px}}
+.clave-caja{position:relative;display:block}
+.clave-caja input{padding-right:48px}
+.ojo{position:absolute;right:6px;top:calc(50% + 3px);transform:translateY(-50%);background:none;border:0;font-size:18px;width:38px;height:38px;border-radius:10px;cursor:pointer;opacity:.75}
+.ojo:hover{opacity:1;background:rgba(127,150,190,.15)}
+.fuerza{margin:8px 0 2px}
+.fuerza-barra{height:6px;border-radius:4px;background:var(--linea);overflow:hidden}
+.fuerza-barra i{display:block;height:100%;width:0;transition:width .2s,background .2s}
+.fuerza small{display:block;font-size:12.5px;font-weight:700;margin-top:4px;min-height:16px}
+#acceso:not(.registro) .fuerza{display:none}

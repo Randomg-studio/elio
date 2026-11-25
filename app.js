@@ -7,6 +7,7 @@ const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 const CFG = window.ELIO_CONFIG || {};
 const DEMO = !CFG.SUPABASE_URL && location.hostname === 'localhost' && location.search.includes('demo');
+const VOLVER = location.hostname === 'localhost' ? location.origin + '/' : CFG.SITIO;
 const PRECIOS = { impulso: 29.9, ultra: 79.9 };
 const NOMBRE_PLAN = { libre: 'Libre', impulso: 'Impulso', ultra: 'Ultra' };
 const CUPOS = {
@@ -54,11 +55,11 @@ $('#f-acceso').addEventListener('submit', async (e) => {
       const { error } = await sb.auth.signInWithPassword({ email: correo, password: clave });
       if (error) throw new Error(/confirm/i.test(error.message) ? 'Primero confirma tu correo: revisa tu bandeja (y la carpeta de spam).' : 'Correo o contraseña incorrectos.');
     } else if (modo === 'registro') {
-      const { data, error } = await sb.auth.signUp({ email: correo, password: clave, options: { data: { nombre, acepto: true }, emailRedirectTo: CFG.SITIO } });
+      const { data, error } = await sb.auth.signUp({ email: correo, password: clave, options: { data: { nombre, acepto: true }, emailRedirectTo: VOLVER } });
       if (error) throw new Error(/registered|exists/i.test(error.message) ? 'Ese correo ya tiene cuenta. Inicia sesión.' : 'No se pudo crear la cuenta: ' + error.message);
       if (!data.session) { modoAcceso('entrar'); aviso.classList.add('ok'); aviso.textContent = '¡Cuenta creada! Confirma tu correo (revisa también spam) y luego inicia sesión.'; }
     } else {
-      const { error } = await sb.auth.resetPasswordForEmail(correo, { redirectTo: CFG.SITIO });
+      const { error } = await sb.auth.resetPasswordForEmail(correo, { redirectTo: VOLVER });
       if (error) throw new Error('No se pudo enviar el enlace. Inténtalo en un minuto.');
       aviso.classList.add('ok'); aviso.textContent = 'Si ese correo tiene cuenta, te llegó un enlace para crear una nueva contraseña.';
     }
@@ -73,6 +74,35 @@ $('#f-nueva').addEventListener('submit', async (e) => {
   const { error } = await sb.auth.updateUser({ password: clave });
   if (error) { $('#nueva-aviso').textContent = 'No se pudo guardar. Pide un enlace nuevo.'; return; }
   $('#nueva-clave').classList.add('oculto'); toast('Contraseña actualizada ✔');
+});
+
+
+// ---------- Contraseñas: ver/ocultar y medidor de fuerza ----------
+document.querySelectorAll('.ojo').forEach((b) => b.addEventListener('click', () => {
+  const inp = b.previousElementSibling, ver = inp.type === 'password';
+  inp.type = ver ? 'text' : 'password'; b.textContent = ver ? '🙈' : '👁';
+  b.setAttribute('aria-label', ver ? 'Ocultar contraseña' : 'Mostrar contraseña');
+}));
+function fuerzaClave(c) {
+  let p = 0;
+  if (c.length >= 8) p++; if (c.length >= 12) p++;
+  if (/[a-z]/.test(c) && /[A-Z]/.test(c)) p++;
+  if (/\d/.test(c)) p++;
+  if (/[^A-Za-z0-9]/.test(c)) p++;
+  if (c.length < 8) p = Math.min(p, 1);
+  return Math.min(4, p);
+}
+const NIVELES = [['Muy débil', '#d63a52'], ['Débil', '#f0803c'], ['Media', '#e8b923'], ['Fuerte', '#5cc46a'], ['Muy fuerte', '#14915b']];
+document.querySelectorAll('.fuerza').forEach((f) => {
+  const inp = f.previousElementSibling.querySelector('input[type=password],input[name=clave]');
+  const pintar = () => {
+    const v = inp.value, n = fuerzaClave(v), [t, col] = NIVELES[n];
+    f.querySelector('i').style.width = v ? ((n + 1) / 5) * 100 + '%' : '0';
+    f.querySelector('i').style.background = col;
+    f.querySelector('small').textContent = v ? `Seguridad: ${t}${n < 3 ? ' · usa 12+ caracteres, mayúsculas, números y símbolos' : ''}` : '';
+    f.querySelector('small').style.color = col;
+  };
+  inp.addEventListener('input', pintar);
 });
 
 // ---------- Arranque ----------
