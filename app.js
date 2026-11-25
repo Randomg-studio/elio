@@ -11,6 +11,7 @@ const VOLVER = location.hostname === 'localhost' ? location.origin + '/' : CFG.S
 const PRECIOS = { impulso: 29.9, ultra: 79.9 };
 const NOMBRE_PLAN = { libre: 'Libre', impulso: 'Impulso', ultra: 'Ultra' };
 const CUPOS = {
+  invitado: { rapido: 4, razonamiento: 0, experto: 0 },
   libre: { rapido: 20, razonamiento: 0, experto: 0 },
   impulso: { rapido: 100, razonamiento: 300, experto: 0 },
   ultra: { rapido: 150, razonamiento: 800, experto: 200 },
@@ -22,7 +23,7 @@ const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('ver'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('ver'), 3200); }
 
 const sb = CFG.SUPABASE_URL ? createClient(CFG.SUPABASE_URL, CFG.SUPABASE_KEY) : null;
-const E = { sesion: null, estado: null, chats: [], conv: null, nivel: 'rapido', adjunto: null, enviando: false };
+const E = { invitado: false, historialInv: [], restantes: 4, sesion: null, estado: null, chats: [], conv: null, nivel: 'rapido', adjunto: null, enviando: false };
 
 // ---------- Acceso ----------
 let modo = 'entrar';
@@ -109,17 +110,39 @@ document.querySelectorAll('.fuerza').forEach((f) => {
 async function iniciar() {
   if (DEMO) { E.estado = { nombre: 'Demo', plan: 'impulso', plan_vence: '2026-12-25', es_admin: true, hoy: { rapido: 12, razonamiento: 0, experto: 0 }, mes: { rapido: 40, razonamiento: 25, experto: 0 } }; return entrarApp(); }
   if (!sb) { $('#acceso').classList.remove('oculto'); modoAcceso('entrar'); return; }
+  try { const g = localStorage.getItem('elio_restantes_' + new Date().toDateString()); if (g !== null) E.restantes = Number(g); } catch (e) {}
   sb.auth.onAuthStateChange((ev, sesion) => {
     if (ev === 'PASSWORD_RECOVERY') $('#nueva-clave').classList.remove('oculto');
-    if (ev === 'SIGNED_OUT') { E.sesion = null; $('#app').classList.add('oculto'); $('#acceso').classList.remove('oculto'); }
+    if (ev === 'SIGNED_OUT') { E.sesion = null; modoInvitado(); }
     if (ev === 'SIGNED_IN' && sesion && !E.sesion) { E.sesion = sesion; entrarApp(); }
     if (ev === 'TOKEN_REFRESHED' && sesion) E.sesion = sesion;
   });
   const { data } = await sb.auth.getSession();
   if (data.session) { E.sesion = data.session; entrarApp(); }
-  else { $('#acceso').classList.remove('oculto'); modoAcceso('entrar'); }
+  else modoInvitado();
 }
+function modoInvitado() {
+  E.invitado = true; E.historialInv = []; document.body.classList.add('es-invitado');
+  E.estado = { plan: 'invitado', nombre: '', hoy: { rapido: 0, razonamiento: 0, experto: 0 }, mes: { rapido: 0, razonamiento: 0, experto: 0 } };
+  $('#acceso').classList.add('oculto'); $('#app').classList.remove('oculto');
+  $('#saludo').textContent = '¿En qué te ayudo hoy?';
+  $$('.niveles button').forEach((b) => b.classList.toggle('bloq', b.dataset.nivel !== 'rapido'));
+  E.chats = []; pintarChats(); nuevoChat(); pintarRestantes();
+}
+function pintarRestantes() {
+  $('#texto').placeholder = E.restantes > 0 ? `Pregúntale a Elio… (te quedan ${E.restantes} sin cuenta)` : 'Crea tu cuenta gratis para seguir conversando';
+}
+function pedirCuenta(msg) {
+  $('#acceso').classList.remove('oculto'); modoAcceso('registro');
+  if (msg) { $('#acceso-aviso').classList.add('ok'); $('#acceso-aviso').textContent = msg; }
+}
+$('#b-entrar').addEventListener('click', () => { $('#acceso').classList.remove('oculto'); modoAcceso('entrar'); });
+$('#b-registro').addEventListener('click', () => pedirCuenta());
+$('#lat-registro').addEventListener('click', () => pedirCuenta());
+$('#cerrar-acceso').addEventListener('click', () => $('#acceso').classList.add('oculto'));
+
 async function entrarApp() {
+  E.invitado = false; document.body.classList.remove('es-invitado');
   $('#acceso').classList.add('oculto'); $('#app').classList.remove('oculto');
   await cargarEstado();
   if (sb && E.estado && !E.estado.acepto && E.sesion?.user?.user_metadata?.acepto) await sb.rpc('elio_aceptar_terminos');
@@ -214,8 +237,9 @@ function burbujaElio() {
 
 async function enviar(texto, adjunto) {
   if (E.enviando) return;
+  if (E.invitado && E.restantes <= 0) return pedirCuenta('Ya usaste tus preguntas sin cuenta. Crea tu cuenta gratis para seguir: 20 mensajes al día y tu historial guardado.');
   const C = CUPOS[E.estado?.plan] || CUPOS.libre;
-  if (!C[E.nivel]) { toast(E.nivel === 'experto' ? 'El modo Experto está en el plan Ultra.' : 'El modo Razonamiento está en Impulso y Ultra.'); return abrirPlanes(); }
+  if (!C[E.nivel]) { if (E.invitado) return pedirCuenta('Crea tu cuenta para usar los modos avanzados.'); toast(E.nivel === 'experto' ? 'El modo Experto está en el plan Ultra.' : 'El modo Razonamiento está en Impulso y Ultra.'); return abrirPlanes(); }
   E.enviando = true; $('#enviar').disabled = true;
   $('#vacio').classList.add('oculto');
   burbujaYo(texto, adjunto?.nombre);
@@ -229,14 +253,15 @@ async function enviar(texto, adjunto) {
       if (!E.conv) { E.conv = 'demo-' + Date.now(); E.chats.unshift({ id: E.conv, titulo: texto.slice(0, 60) }); pintarChats(); $('#titulo-chat').textContent = texto.slice(0, 60); }
       return;
     }
-    const { data: s } = await sb.auth.getSession();
+    const s = E.invitado ? null : (await sb.auth.getSession()).data;
     const r = await fetch(`${CFG.SUPABASE_URL}/functions/v1/elio-chat`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${s.session.access_token}`, apikey: CFG.SUPABASE_KEY },
-      body: JSON.stringify({ conversacion: E.conv, texto, nivel: E.nivel, adjunto }),
+      headers: { 'Content-Type': 'application/json', apikey: CFG.SUPABASE_KEY, ...(s?.session ? { Authorization: `Bearer ${s.session.access_token}` } : {}) },
+      body: JSON.stringify(E.invitado ? { texto, invitado: true, historial: E.historialInv } : { conversacion: E.conv, texto, nivel: E.nivel, adjunto }),
     });
     if (!r.ok || !r.body) {
       const j = await r.json().catch(() => ({}));
+      if (j.codigo === 'registro') { b.error(j.mensaje); E.restantes = 0; guardarRestantes(); pintarRestantes(); pedirCuenta(j.mensaje); return; }
       b.error(j.mensaje || 'No pude responder. Revisa tu conexión.', r.status >= 500 && r.status !== 503 ? () => enviar(texto, adjunto) : null, j.codigo === 'cupo' || j.codigo === 'tope_libre');
       return;
     }
@@ -255,11 +280,16 @@ async function enviar(texto, adjunto) {
         }
         if (ev.tipo === 'texto') { acumulado += ev.t; b.pintar(acumulado); abajo(); }
         if (ev.tipo === 'aviso') toast(ev.t);
+        if (ev.tipo === 'invitado') { E.restantes = ev.restantes; guardarRestantes(); pintarRestantes(); }
         if (ev.tipo === 'error') fallo = ev.mensaje;
       }
     }
     if (fallo && !acumulado) b.error(fallo, () => enviar(texto, adjunto)); else b.pintar(acumulado || '…', true);
-    cargarEstado();
+    if (E.invitado) {
+      if (acumulado) E.historialInv.push({ rol: 'user', contenido: texto }, { rol: 'assistant', contenido: acumulado });
+      if (E.restantes <= 0) setTimeout(() => pedirCuenta('¿Te gustó? Crea tu cuenta gratis para seguir conversando con Elio: 20 mensajes al día y tu historial guardado.'), 1800);
+      else if (E.restantes === 1) toast('Te queda 1 pregunta sin cuenta.');
+    } else cargarEstado();
   } catch (err) {
     b.error('Se cortó la conexión. Inténtalo de nuevo.', () => enviar(texto, adjunto));
   } finally {
@@ -279,6 +309,7 @@ $('#f-mensaje').addEventListener('submit', (e) => {
 $$('.sugerencias button').forEach((b) => b.addEventListener('click', () => enviar(b.textContent, null)));
 $$('.niveles button').forEach((b) => b.addEventListener('click', () => {
   const C = CUPOS[E.estado?.plan] || CUPOS.libre;
+  if (!C[b.dataset.nivel] && E.invitado) return pedirCuenta('Crea tu cuenta para usar los modos avanzados.');
   if (!C[b.dataset.nivel]) { toast(b.dataset.nivel === 'experto' ? 'El modo Experto está en el plan Ultra.' : 'El modo Razonamiento está en Impulso y Ultra.'); return abrirPlanes(); }
   E.nivel = b.dataset.nivel; $$('.niveles button').forEach((x) => x.classList.toggle('on', x === b));
 }));
@@ -286,6 +317,7 @@ $$('.niveles button').forEach((b) => b.addEventListener('click', () => {
 // Adjuntos
 $('#archivo').addEventListener('change', async (e) => {
   const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  if (E.invitado) return pedirCuenta('Crea tu cuenta para subir archivos.');
   if ((E.estado?.plan || 'libre') === 'libre') { toast('Subir archivos está en los planes Impulso y Ultra.'); return abrirPlanes(); }
   if (f.size > 10 * 1024 * 1024) return toast('El archivo pesa más de 10 MB.');
   const datos = await new Promise((ok, mal) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1]); r.onerror = mal; r.readAsDataURL(f); });
@@ -294,6 +326,8 @@ $('#archivo').addEventListener('change', async (e) => {
 });
 function quitarAdjunto() { E.adjunto = null; $('#adjunto-vista').classList.add('oculto'); }
 $('#quitar-adjunto').addEventListener('click', quitarAdjunto);
+
+function guardarRestantes() { try { localStorage.setItem('elio_restantes_' + new Date().toDateString(), String(E.restantes)); } catch (e) {} }
 
 // ---------- Planes y pago ----------
 function abrirPlanes() {
