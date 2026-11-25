@@ -10,7 +10,7 @@
 <link rel="apple-touch-icon" href="img/Elio_Icono-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="app.css?v=1">
+<link rel="stylesheet" href="app.css?v=2">
 </head>
 <body>
 <!-- Acceso -->
@@ -25,7 +25,8 @@
     <form id="f-acceso" novalidate>
       <label class="solo-registro">Tu nombre<input name="nombre" autocomplete="name" maxlength="40"></label>
       <label>Correo<input name="correo" type="email" autocomplete="email" required></label>
-      <label class="sin-olvido">Contraseña<input name="clave" type="password" autocomplete="current-password" minlength="8" required></label>
+      <label class="sin-olvido">Contraseña<span class="clave-caja"><input name="clave" type="password" autocomplete="current-password" minlength="8" required><button type="button" class="ojo" aria-label="Mostrar contraseña">👁</button></span></label>
+      <div class="fuerza solo-registro" aria-live="polite"><div class="fuerza-barra"><i></i></div><small></small></div>
       <label class="check solo-registro"><input type="checkbox" name="terminos"><span>Acepto los <a href="terminos.html" target="_blank">Términos</a> y la <a href="privacidad.html" target="_blank">Política de privacidad</a>. Si soy menor de 18 años, tengo permiso de mi madre, padre o tutor.</span></label>
       <p class="aviso" id="acceso-aviso" role="alert"></p>
       <button class="boton principal" id="acceso-btn" type="submit">Entrar</button>
@@ -39,7 +40,8 @@
 <div id="nueva-clave" class="modal oculto" role="dialog" aria-modal="true">
   <form class="modal-caja" id="f-nueva">
     <h2>Crea tu nueva contraseña</h2>
-    <label>Nueva contraseña<input name="clave" type="password" minlength="8" autocomplete="new-password" required></label>
+    <label>Nueva contraseña<span class="clave-caja"><input name="clave" type="password" minlength="8" autocomplete="new-password" required><button type="button" class="ojo" aria-label="Mostrar contraseña">👁</button></span></label>
+    <div class="fuerza" aria-live="polite"><div class="fuerza-barra"><i></i></div><small></small></div>
     <p class="aviso" id="nueva-aviso"></p>
     <button class="boton principal" type="submit">Guardar contraseña</button>
   </form>
@@ -163,6 +165,6 @@
 
 <div id="toast" role="status"></div>
 <script src="config.js?v=1"></script>
-<script type="module" src="app.js?v=1"></script>
+<script type="module" src="app.js?v=2"></script>
 </body>
 </html>
