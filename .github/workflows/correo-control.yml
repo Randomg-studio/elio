@@ -1,0 +1,19 @@
+# Correo de control de Elio: el día 1 de cada mes envía un correo a pagos@ por el SMTP de Brevo
+# (plantilla «Magic link» de Supabase). Mantiene viva la clave SMTP «Elio» (Brevo la apaga tras 90 días sin uso)
+# y avisa si el correo dejó de funcionar: si un mes no llega, revisar la clave.
+name: Correo de control mensual
+on:
+  schedule:
+    - cron: "0 14 1 * *"   # día 1 de cada mes, 9:00 a. m. de Perú
+  workflow_dispatch: {}
+jobs:
+  control:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enviar correo de control
+        run: |
+          codigo=$(curl -s -o /dev/null -w "%{http_code}" -X POST "https://dpipmmocrooizngopayz.supabase.co/auth/v1/otp" \
+            -H "apikey: sb_publishable_sN1BFTi0lGSGaQO4aw5UGg_KddEbewg" -H "Content-Type: application/json" \
+            -d '{"email":"pagos@flexgogroup.com","create_user":false}')
+          echo "Respuesta de Supabase: $codigo"
+          test "$codigo" = "200"
