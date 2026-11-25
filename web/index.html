@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Elio · la IA de FlexGo Group</title>
+<meta name="description" content="Elio, el chat de inteligencia artificial de FlexGo Group, para estudiantes y empresas. Planes Libre, Impulso y Ultra.">
+<meta name="theme-color" content="#102449">
+<link rel="icon" href="img/Elio_Icono-48.png">
+<link rel="apple-touch-icon" href="img/Elio_Icono-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app.css?v=1">
+</head>
+<body>
+<!-- Acceso -->
+<main id="acceso" class="oculto">
+  <section class="acceso-caja">
+    <img src="img/Elio_Principal-760.webp" alt="Elio by FlexGo Group" class="acceso-logo" width="380">
+    <p class="acceso-sub">Tu inteligencia artificial para estudiar, trabajar y crear.</p>
+    <div class="pestanas" role="tablist">
+      <button data-modo="entrar" class="on" role="tab">Iniciar sesión</button>
+      <button data-modo="registro" role="tab">Crear cuenta</button>
+    </div>
+    <form id="f-acceso" novalidate>
+      <label class="solo-registro">Tu nombre<input name="nombre" autocomplete="name" maxlength="40"></label>
+      <label>Correo<input name="correo" type="email" autocomplete="email" required></label>
+      <label class="sin-olvido">Contraseña<input name="clave" type="password" autocomplete="current-password" minlength="8" required></label>
+      <label class="check solo-registro"><input type="checkbox" name="terminos"><span>Acepto los <a href="terminos.html" target="_blank">Términos</a> y la <a href="privacidad.html" target="_blank">Política de privacidad</a>. Si soy menor de 18 años, tengo permiso de mi madre, padre o tutor.</span></label>
+      <p class="aviso" id="acceso-aviso" role="alert"></p>
+      <button class="boton principal" id="acceso-btn" type="submit">Entrar</button>
+      <button class="enlace" type="button" id="olvide">Olvidé mi contraseña</button>
+    </form>
+    <p class="pie">by <b>FlexGo Group</b> · Hecho en Perú</p>
+  </section>
+</main>
+
+<!-- Nueva contraseña (tras el enlace del correo) -->
+<div id="nueva-clave" class="modal oculto" role="dialog" aria-modal="true">
+  <form class="modal-caja" id="f-nueva">
+    <h2>Crea tu nueva contraseña</h2>
+    <label>Nueva contraseña<input name="clave" type="password" minlength="8" autocomplete="new-password" required></label>
+    <p class="aviso" id="nueva-aviso"></p>
+    <button class="boton principal" type="submit">Guardar contraseña</button>
+  </form>
+</div>
+
+<!-- App -->
+<div id="app" class="oculto">
+  <aside id="lateral">
+    <div class="lat-arriba">
+      <img src="img/Elio_Avatar-160.webp" alt="" width="34" height="34" class="lat-avatar">
+      <b>Elio</b>
+      <button class="icono solo-movil" id="cerrar-lateral" aria-label="Cerrar menú">✕</button>
+    </div>
+    <button class="boton nuevo" id="nuevo-chat">＋ Nuevo chat</button>
+    <nav id="lista-chats" aria-label="Tus conversaciones"></nav>
+    <div class="lat-plan">
+      <div class="plan-fila"><span id="plan-nombre" class="insignia">Libre</span><small id="plan-vence"></small></div>
+      <div id="cupos"></div>
+      <button class="boton mejora" id="ver-planes">✦ Mejorar mi plan</button>
+    </div>
+    <div class="lat-abajo">
+      <button class="enlace" id="ir-admin" hidden>Panel de administración</button>
+      <span id="lat-nombre"></span>
+      <button class="enlace" id="salir">Cerrar sesión</button>
+    </div>
+  </aside>
+
+  <section id="principal">
+    <header class="barra">
+      <button class="icono solo-movil" id="abrir-lateral" aria-label="Abrir menú">☰</button>
+      <h1 id="titulo-chat">Nuevo chat</h1>
+      <a class="flexgo" href="https://flexgogroup.com" target="_blank" rel="noopener">by FlexGo Group</a>
+    </header>
+
+    <div id="conversacion" aria-live="polite">
+      <div id="vacio">
+        <img src="img/Elio_Avatar-160.webp" alt="" width="96" height="96">
+        <h2 id="saludo">¿En qué te ayudo hoy?</h2>
+        <div class="sugerencias">
+          <button>Explícame la fotosíntesis como si tuviera 12 años</button>
+          <button>Ayúdame a escribir un correo para pedir una cotización</button>
+          <button>Dame 5 ideas para vender más en mi negocio este mes</button>
+          <button>Resuelve paso a paso: 2x + 7 = 31</button>
+        </div>
+      </div>
+      <div id="mensajes"></div>
+    </div>
+
+    <form id="f-mensaje" class="caja-mensaje">
+      <div id="adjunto-vista" class="oculto"><span id="adjunto-nombre"></span><button type="button" class="icono" id="quitar-adjunto" aria-label="Quitar archivo">✕</button></div>
+      <textarea id="texto" rows="1" placeholder="Escríbele a Elio…" maxlength="12000" aria-label="Mensaje"></textarea>
+      <div class="caja-abajo">
+        <label class="icono adjuntar" title="Subir imagen o PDF (Impulso y Ultra)" aria-label="Subir archivo">📎<input type="file" id="archivo" accept="image/png,image/jpeg,image/webp,image/gif,application/pdf" hidden></label>
+        <div class="niveles" role="radiogroup" aria-label="Modo de Elio">
+          <button type="button" data-nivel="rapido" class="on" title="Respuestas rápidas para el día a día">⚡ Rápido</button>
+          <button type="button" data-nivel="razonamiento" title="Piensa más antes de responder (Impulso y Ultra)">🧠 Razonamiento</button>
+          <button type="button" data-nivel="experto" title="El modelo más potente (Ultra)">★ Experto</button>
+        </div>
+        <button class="enviar" id="enviar" type="submit" aria-label="Enviar">➤</button>
+      </div>
+    </form>
+    <p class="nota-ia">Elio puede equivocarse. Revisa la información importante.</p>
+  </section>
+</div>
+
+<!-- Planes -->
+<div id="planes" class="modal oculto" role="dialog" aria-modal="true" aria-labelledby="planes-t">
+  <div class="modal-caja ancha">
+    <button class="icono cerrar" data-cerrar aria-label="Cerrar">✕</button>
+    <h2 id="planes-t">Elige tu plan</h2>
+    <div class="tarjetas">
+      <article class="tarjeta" data-plan="libre">
+        <h3>Libre</h3><p class="precio">S/ 0</p>
+        <ul><li>20 mensajes al día</li><li>Modo Rápido</li><li>Historial de chats</li></ul>
+        <button class="boton" disabled>Tu plan base</button>
+      </article>
+      <article class="tarjeta destacada" data-plan="impulso">
+        <span class="cinta">Más elegido</span>
+        <h3>Impulso</h3><p class="precio">S/ 29.90<small>/mes</small></p>
+        <ul><li>100 mensajes rápidos al día</li><li>300 en modo Razonamiento al mes</li><li>Sube PDF e imágenes</li><li>Ideal para estudiantes y profesionales</li></ul>
+        <button class="boton principal" data-comprar="impulso">Elegir Impulso</button>
+      </article>
+      <article class="tarjeta" data-plan="ultra">
+        <h3>Ultra</h3><p class="precio">S/ 79.90<small>/mes</small></p>
+        <ul><li>150 mensajes rápidos al día</li><li>800 en modo Razonamiento al mes</li><li>200 en modo Experto (el más potente)</li><li>Documentos largos y análisis</li><li>Para empresas y usuarios avanzados</li></ul>
+        <button class="boton principal" data-comprar="ultra">Elegir Ultra</button>
+      </article>
+    </div>
+    <p class="nota">Cupos claros, sin sorpresas. Pago mensual por Yape; tu plan se activa cuando confirmamos el pago (normalmente el mismo día).</p>
+  </div>
+</div>
+
+<!-- Pago por Yape -->
+<div id="pago" class="modal oculto" role="dialog" aria-modal="true" aria-labelledby="pago-t">
+  <form class="modal-caja" id="f-pago">
+    <button class="icono cerrar" type="button" data-cerrar aria-label="Cerrar">✕</button>
+    <h2 id="pago-t">Pagar con Yape</h2>
+    <p>Plan <b id="pago-plan"></b> · 1 mes</p>
+    <p class="monto">S/ <span id="pago-monto"></span></p>
+    <ol class="pasos">
+      <li>Abre Yape y yapea al <b>919 446 978</b> (FlexGo Group).</li>
+      <li>Copia el <b>número de operación</b> que te muestra Yape.</li>
+      <li>Escríbelo aquí y envía. Te activamos el plan al confirmar el pago.</li>
+    </ol>
+    <label>Número de operación<input name="operacion" inputmode="numeric" minlength="4" maxlength="30" required></label>
+    <p class="aviso" id="pago-aviso"></p>
+    <button class="boton principal" type="submit">Ya yapeé · Enviar</button>
+  </form>
+</div>
+
+<!-- Administración -->
+<div id="admin" class="modal oculto" role="dialog" aria-modal="true" aria-labelledby="admin-t">
+  <div class="modal-caja ancha">
+    <button class="icono cerrar" data-cerrar aria-label="Cerrar">✕</button>
+    <h2 id="admin-t">Panel de Elio</h2>
+    <div id="admin-resumen" class="resumen"></div>
+    <h3>Pagos por Yape</h3>
+    <div id="admin-pagos"></div>
+  </div>
+</div>
+
+<div id="toast" role="status"></div>
+<script src="config.js?v=1"></script>
+<script type="module" src="app.js?v=1"></script>
+</body>
+</html>
