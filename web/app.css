@@ -403,3 +403,16 @@ em.nuevo{background:rgba(0,198,235,.16);color:var(--cian2)!important}
 .enc-vincular{font-size:12px;margin:8px 0;align-items:flex-start}
 .encuesta .a-fila .boton{width:auto;padding:7px 14px;font-size:13px}
 body.es-invitado .enc-vincular{display:none}
+
+/* v15: Trabajos académicos */
+.aviso-etico{background:rgba(0,198,235,.08);border:1px solid rgba(0,198,235,.25);border-radius:12px;padding:10px 12px}
+#ac-citar .a-fila input,#ac-citar select{flex:1;min-width:0}
+#ac-citar>.a-fila{margin-bottom:8px}#ac-citar>.a-fila .boton{flex:none;width:auto;padding:8px 14px}
+#ac-citar>.a-fila input{background:rgba(255,255,255,.05);border:1px solid var(--linea);border-radius:12px;color:var(--texto);padding:9px 12px;font:inherit;font-size:14px}
+.r-vista{border:1px solid var(--linea);border-radius:14px;padding:10px 12px;margin-top:6px}
+.r-estilos{display:flex;gap:12px;flex-wrap:wrap;align-items:center;font-size:13px}
+.r-estilos label{display:flex;gap:4px;align-items:center;cursor:pointer;white-space:nowrap}.r-estilos input{accent-color:var(--cian)}
+.r-previa{margin:8px 0 0;padding-left:1.6em;text-indent:-1.6em;font-size:14px;line-height:1.6;word-break:break-word}
+.r-item .r-texto{flex:1;padding-left:1.6em;text-indent:-1.6em;font-size:13.5px;line-height:1.55;word-break:break-word}
+.f-partes{margin:6px 0 0 20px;padding:0;font-size:13px;color:#c3d1e8}
+.b-doc-cab .boton{width:auto;padding:5px 12px;font-size:12px;flex:none}

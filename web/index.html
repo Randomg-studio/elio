@@ -10,7 +10,7 @@
 <link rel="apple-touch-icon" href="img/Elio_Icono-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="app.css?v=14">
+<link rel="stylesheet" href="app.css?v=15">
 </head>
 <body>
 <!-- Iconos (SVG reutilizables) -->
@@ -114,6 +114,7 @@
       <button class="on" id="m-inicio"><svg><use href="#i-casa"/></svg>Inicio</button>
       <button id="m-herramientas"><svg><use href="#i-cuadros"/></svg>Mi día<em class="nuevo">Nuevo</em></button>
       <button id="m-biblioteca"><svg><use href="#i-capas"/></svg>Biblioteca<em class="nuevo">Nuevo</em></button>
+      <button id="m-academico"><svg><use href="#i-lapiz"/></svg>Trabajos académicos<em class="nuevo">Nuevo</em></button>
       <button data-pronto="Mis proyectos"><svg><use href="#i-carpeta"/></svg>Mis proyectos<em>Pronto</em></button>
     </nav>
     <div class="lat-recientes">
@@ -242,6 +243,42 @@
     <p class="aviso" id="pago-aviso"></p>
     <button class="boton principal grande" type="submit"><span>Ya yapeé · Enviar</span></button>
   </form>
+</div>
+
+<!-- Trabajos académicos (citas y formatos) -->
+<div id="academico" class="modal oculto" role="dialog" aria-modal="true" aria-labelledby="academico-t">
+  <div class="modal-caja ancha vidrio">
+    <button class="icono cerrar" data-cerrar aria-label="Cerrar">✕</button>
+    <h2 id="academico-t">Trabajos académicos</h2>
+    <p class="nota aviso-etico">🎓 Elio es un <b>apoyo para estudiar</b>: te ayuda a citar bien y a ordenar tu trabajo, pero el trabajo es tuyo. Cumple siempre las reglas de tu universidad sobre el uso de IA y revisa cada referencia con la fuente original. Elio <b>nunca inventa</b> referencias: solo da formato a fuentes reales que tú indicas.</p>
+    <div class="b-pestanas" role="tablist">
+      <button type="button" class="on" data-apest="citar" role="tab">✍️ Citar una fuente</button>
+      <button type="button" data-apest="lista" role="tab">📚 Mis referencias</button>
+      <button type="button" data-apest="formatos" role="tab">🏛️ Formatos de universidades</button>
+    </div>
+    <div id="ac-citar">
+      <div class="a-fila"><input id="r-doi" placeholder="¿Tienes el DOI? Ej.: 10.1016/j.ejor.2020.01.001" aria-label="DOI"><button class="boton" type="button" id="r-buscar">Buscar datos</button></div>
+      <form id="r-form" class="a-form">
+        <div class="a-fila"><select id="r-tipo" aria-label="Tipo de fuente"><option value="articulo">Artículo de revista</option><option value="libro">Libro</option><option value="capitulo">Capítulo de libro</option><option value="web">Página web</option><option value="tesis">Tesis</option></select>
+          <input id="r-anio" maxlength="20" placeholder="Año (o s.f.)" aria-label="Año"></div>
+        <textarea id="r-autores" rows="2" maxlength="2000" placeholder="Autores, uno por línea: Apellido, Nombre (o el nombre de la organización)" aria-label="Autores"></textarea>
+        <input id="r-titulo" maxlength="400" placeholder="Título" aria-label="Título" required>
+        <div class="a-fila"><input id="r-fuente" maxlength="300" placeholder="Revista / Editorial / Sitio web / Universidad" aria-label="Revista, editorial, sitio o universidad"><input id="r-extra" maxlength="200" placeholder="Libro (si es capítulo) o grado (si es tesis)" aria-label="Libro o grado"></div>
+        <div class="a-fila"><input id="r-vol" maxlength="20" placeholder="Volumen" aria-label="Volumen"><input id="r-num" maxlength="20" placeholder="Número" aria-label="Número"><input id="r-pags" maxlength="30" placeholder="Páginas (ej. 15–30)" aria-label="Páginas"></div>
+        <input id="r-url" maxlength="500" placeholder="DOI o enlace (https://…)" aria-label="DOI o enlace">
+        <div class="a-fila fin"><span class="nota" id="r-cupo"></span><span><button class="boton" type="button" id="r-limpiar">Limpiar</button> <button class="boton principal" type="submit">Guardar referencia</button></span></div>
+      </form>
+      <div class="r-vista"><div class="r-estilos"><b>Vista previa:</b> <label><input type="radio" name="r-estilo" value="apa" checked> APA 7</label><label><input type="radio" name="r-estilo" value="vancouver"> Vancouver</label><label><input type="radio" name="r-estilo" value="iso"> ISO 690</label></div><p id="r-previa" class="r-previa">Completa los datos para ver la referencia.</p></div>
+    </div>
+    <div id="ac-lista" class="oculto">
+      <div class="a-fila fin"><span class="r-estilos"><label><input type="radio" name="l-estilo" value="apa" checked> APA 7</label><label><input type="radio" name="l-estilo" value="vancouver"> Vancouver</label><label><input type="radio" name="l-estilo" value="iso"> ISO 690</label></span><button class="boton principal" type="button" id="l-copiar">Copiar lista</button></div>
+      <div id="l-lista" class="b-lista"></div>
+    </div>
+    <div id="ac-formatos" class="oculto">
+      <p class="nota">Solo mostramos formatos verificados en la guía oficial de cada universidad, con su enlace. Cada facultad puede tener cambios: confirma siempre con tu asesor la versión vigente.</p>
+      <div id="f-lista" class="b-lista"></div>
+    </div>
+  </div>
 </div>
 
 <!-- Mi día (tareas y recordatorios) -->
@@ -382,6 +419,6 @@
 
 <div id="toast" role="status"></div>
 <script src="config.js?v=1"></script>
-<script type="module" src="app.js?v=15"></script>
+<script type="module" src="app.js?v=16"></script>
 </body>
 </html>
