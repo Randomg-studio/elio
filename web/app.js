@@ -12,6 +12,12 @@ const PRECIOS = { impulso: 29.9, ultra: 79.9 };
 const NOMBRE_PLAN = { libre: 'Libre', impulso: 'Impulso', ultra: 'Ultra' };
 const MOTORES = { chispa: ['⚡ Chispa', 1], pulso: ['💡 Pulso', 2], orbita: ['🪐 Órbita', 10], cumbre: ['🏔️ Cumbre', 25] };
 const MOTORES_PLAN = { invitado: ['chispa'], libre: ['chispa'], impulso: ['chispa', 'pulso', 'orbita'], ultra: ['chispa', 'pulso', 'orbita', 'cumbre'] };
+// Motores que puede usar ahora (Libre: Órbita mientras le quede probadita)
+const permitidosAhora = () => {
+  if (E.invitado) return MOTORES_PLAN.invitado;
+  const base = E.cred?.motores || MOTORES_PLAN[E.estado?.plan] || ['chispa'];
+  return (E.cred?.probadita_restante > 0) ? [...new Set([...base, 'orbita'])] : base;
+};
 
 marked.setOptions({ breaks: true, gfm: true });
 // Enlaces de las respuestas: siempre se pueden pulsar, se abren en otra pestaña y solo aceptan http, https o mailto
@@ -43,7 +49,7 @@ function modoAcceso(m) {
   $('#acceso').classList.toggle('registro', m === 'registro');
   $('#acceso').classList.toggle('olvido', m === 'olvido');
   $('#acceso-titulo').textContent = { entrar: 'Bienvenido a Elio', registro: 'Crea tu cuenta gratis', olvido: 'Recupera tu contraseña' }[m];
-  $('#acceso-sub').textContent = { entrar: 'Inicia sesión para continuar', registro: '20 créditos cada 5 horas y tu historial guardado', olvido: 'Te enviaremos un enlace a tu correo' }[m];
+  $('#acceso-sub').textContent = { entrar: 'Inicia sesión para continuar', registro: '10 créditos cada 5 horas, 3 mensajes con Órbita a la semana y tu historial', olvido: 'Te enviaremos un enlace a tu correo' }[m];
   $('#acceso-btn span').textContent = { entrar: 'Iniciar sesión', registro: 'Crear mi cuenta', olvido: 'Enviarme el enlace' }[m];
   $('#cambiar-modo').innerHTML = m === 'entrar'
     ? '<span>¿Aún no tienes una cuenta?</span> <button class="enlace" type="button" data-ir-modo="registro">Crear cuenta</button>'
@@ -181,8 +187,13 @@ async function cargarEstado() {
   pintarCreditos();
   if (s.pago_pendiente) $('#cupos').insertAdjacentHTML('beforeend', '<div>⏳ Tu pago está en revisión.</div>');
   $('#ver-planes').textContent = s.plan === 'ultra' ? 'Ver planes' : '✦ Mejorar mi plan';
-  const permitidos = E.cred?.motores || MOTORES_PLAN[s.plan] || ['chispa'];
+  const permitidos = permitidosAhora();
   $$('.niveles button').forEach((b) => b.classList.toggle('bloq', !permitidos.includes(b.dataset.motor)));
+  const orb = $('[data-motor=orbita] small');
+  if (orb) orb.textContent = E.cred?.plan === 'libre' ? `Experto · probadita: te quedan ${E.cred.probadita_restante} de 3 esta semana` : 'Experto en análisis y documentos · 10 créditos · Impulso y Ultra';
+  $$('[data-activar-prueba]').forEach((b) => b.classList.toggle('oculto', !E.cred?.prueba_disponible));
+  $('#prueba-planes').classList.toggle('oculto', !E.cred?.prueba_disponible);
+  $('#mejora-prueba-nota').classList.toggle('oculto', !E.cred?.prueba_disponible);
   $('.adjuntar').style.opacity = s.plan === 'libre' ? 0.5 : 1;
   const h = new Date().getHours();
   $('#saludo').textContent = `${h < 12 ? 'Buenos días' : h < 19 ? 'Buenas tardes' : 'Buenas noches'}${s.nombre ? ', ' + s.nombre.split(' ')[0] : ''}. Soy tu asistente de inteligencia artificial para crear, analizar y potenciar tus ideas.`;
@@ -272,8 +283,8 @@ async function enviar(texto, adjunto) {
     finally { E.enviando = false; abajo(); }
     return;
   }
-  if (E.invitado && E.restantes <= 0) return pedirCuenta('Ya usaste tus preguntas sin cuenta. Crea tu cuenta gratis para seguir: 20 créditos cada 5 horas y tu historial guardado.');
-  const permitidos = E.invitado ? MOTORES_PLAN.invitado : (E.cred?.motores || MOTORES_PLAN[E.estado?.plan] || ['chispa']);
+  if (E.invitado && E.restantes <= 0) return pedirCuenta('Ya usaste tus preguntas sin cuenta. Crea tu cuenta gratis para seguir: 10 créditos cada 5 horas, 3 mensajes con Órbita a la semana y tu historial guardado.');
+  const permitidos = permitidosAhora();
   if (!permitidos.includes(E.motor)) { if (E.invitado) return pedirCuenta('Crea tu cuenta para usar los otros motores de Elio.'); toast(E.motor === 'cumbre' ? 'Cumbre está en el plan Ultra.' : `${MOTORES[E.motor][0]} está en Impulso y Ultra.`); return abrirPlanes(); }
   E.enviando = true; $('#enviar').disabled = true;
   $('#vacio').classList.add('oculto'); document.body.classList.remove('vacio');
@@ -298,6 +309,7 @@ async function enviar(texto, adjunto) {
       const j = await r.json().catch(() => ({}));
       if (j.codigo === 'registro') { b.error(j.mensaje); E.restantes = 0; guardarRestantes(); pintarRestantes(); pedirCuenta(j.mensaje); return; }
       b.error(j.mensaje || 'No pude responder. Revisa tu conexión.', r.status >= 500 && r.status !== 503 ? () => enviar(texto, adjunto) : null, j.codigo === 'cupo' || j.codigo === 'tope_libre');
+      if (j.mejora || j.codigo === 'tope_libre') abrirMejora(j.mensaje);
       return;
     }
     const lector = r.body.getReader(), dec = new TextDecoder(); let buf = '', fallo = null;
@@ -323,7 +335,7 @@ async function enviar(texto, adjunto) {
     if (fallo && !acumulado) b.error(fallo, () => enviar(texto, adjunto)); else b.pintar(acumulado || '…', true);
     if (E.invitado) {
       if (acumulado) E.historialInv.push({ rol: 'user', contenido: texto }, { rol: 'assistant', contenido: acumulado });
-      if (E.restantes <= 0) setTimeout(() => pedirCuenta('¿Te gustó? Crea tu cuenta gratis para seguir conversando con Elio: 20 créditos cada 5 horas y tu historial guardado.'), 1800);
+      if (E.restantes <= 0) setTimeout(() => pedirCuenta('¿Te gustó? Crea tu cuenta gratis para seguir conversando con Elio: 10 créditos cada 5 horas, 3 mensajes con Órbita a la semana y tu historial guardado.'), 1800);
       else if (E.restantes === 1) toast('Te queda 1 pregunta sin cuenta.');
     } else { cargarEstado(); contarParaEncuesta(); }
     if (E.invitado) contarParaEncuesta();
@@ -346,12 +358,30 @@ $('#f-mensaje').addEventListener('submit', (e) => {
 $$('.sugerencias button').forEach((b) => b.addEventListener('click', () => enviar(b.dataset.prompt, null)));
 $$('.niveles button').forEach((b) => b.addEventListener('click', () => {
   const m = b.dataset.motor;
-  const permitidos = E.invitado ? MOTORES_PLAN.invitado : (E.cred?.motores || MOTORES_PLAN[E.estado?.plan] || ['chispa']);
+  const permitidos = permitidosAhora();
   if (!permitidos.includes(m) && E.invitado) return pedirCuenta('Crea tu cuenta para usar los otros motores de Elio.');
   if (!permitidos.includes(m)) { toast(m === 'cumbre' ? 'Cumbre está en el plan Ultra.' : `${MOTORES[m][0]} está en Impulso y Ultra.`); return abrirPlanes(); }
   E.motor = m; $$('.niveles button').forEach((x) => x.classList.toggle('on', x === b));
   $('#modo-txt').textContent = MOTORES[m][0].split(' ').slice(1).join(' ');
   $('#niveles').classList.add('oculto'); pintarCreditos();
+}));
+
+// ---------- Ventana de mejora y prueba gratis de Impulso (una sola vez) ----------
+function abrirMejora(msg) { $('#mejora-msg').textContent = msg || ''; $('#mejora').classList.remove('oculto'); }
+$('#mejora-planes').addEventListener('click', () => { $('#mejora').classList.add('oculto'); abrirPlanes(); });
+function idDispositivo() {
+  let id = null; try { id = localStorage.getItem('elio_dispositivo'); } catch (e) {}
+  if (!id) { id = crypto.randomUUID() + crypto.randomUUID(); try { localStorage.setItem('elio_dispositivo', id); } catch (e) {} }
+  return id;
+}
+$$('[data-activar-prueba]').forEach((b) => b.addEventListener('click', async () => {
+  if (!E.sesion) return pedirCuenta('Crea tu cuenta gratis para probar Impulso 3 días.');
+  if (!confirm('¿Activar tu prueba gratis de Impulso por 3 días? Es una sola vez por persona y no tiene costo.')) return;
+  const { data, error } = await sb.rpc('elio_activar_prueba', { dispositivo: idDispositivo() });
+  if (error) return toast(error.message);
+  $$('.modal').forEach((m) => m.classList.add('oculto'));
+  toast(`¡Listo! Tienes Impulso gratis hasta el ${new Date(data.vence + 'T12:00').toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long' })} 🎉`);
+  cargarEstado();
 }));
 
 // ---------- Créditos: medidor visible ----------
@@ -467,7 +497,7 @@ $$('.modal').forEach((m) => m.addEventListener('click', (e) => { if (e.target ==
 addEventListener('keydown', (e) => { if (e.key === 'Escape') $$('.modal').forEach((m) => m.id !== 'nueva-clave' && m.classList.add('oculto')); });
 
 // ---------- Trabajos académicos: referencias reales en APA 7, Vancouver e ISO 690 (sin IA) ----------
-const TOPE_REF = { libre: 20, impulso: 300, ultra: 1000 };
+const TOPE_REF = { libre: 10, impulso: 300, ultra: 1000 };
 const it = (x) => `<i>${esc(x)}</i>`;
 function autoresDe(txt) {
   return String(txt || '').split('\n').map((l) => l.trim()).filter(Boolean).map((l) => {
@@ -685,7 +715,7 @@ $('#md-correo').addEventListener('change', async (e) => {
 });
 
 // ---------- Biblioteca (segundo cerebro) ----------
-const CUPOS_BIB = { libre: { docs: 5, mb: 25, archivo: 5, preguntas: 5 }, impulso: { docs: 100, mb: 500, archivo: 10, preguntas: 40 }, ultra: { docs: 400, mb: 2048, archivo: 20, preguntas: 100 } };
+const CUPOS_BIB = { libre: { docs: 3, mb: 25, archivo: 5, preguntas: 5 }, impulso: { docs: 100, mb: 500, archivo: 10, preguntas: 40 }, ultra: { docs: 400, mb: 2048, archivo: 20, preguntas: 100 } };
 async function llamarBiblioteca(cuerpo) {
   const { data } = await sb.auth.getSession();
   const r = await fetch(`${CFG.SUPABASE_URL}/functions/v1/elio-biblioteca`, {

@@ -14,7 +14,7 @@ import { extractText, getDocumentProxy } from "npm:unpdf@2.1.0";
 
 type Plan = "libre" | "impulso" | "ultra";
 const CUPOS: Record<Plan, { docs: number; bytes: number; archivo: number; paginasMes: number; preguntasDia: number }> = {
-  libre: { docs: 5, bytes: 25 * 1024 * 1024, archivo: 5 * 1024 * 1024, paginasMes: 30, preguntasDia: 5 },
+  libre: { docs: 3, bytes: 25 * 1024 * 1024, archivo: 5 * 1024 * 1024, paginasMes: 30, preguntasDia: 5 },
   impulso: { docs: 100, bytes: 500 * 1024 * 1024, archivo: 10 * 1024 * 1024, paginasMes: 600, preguntasDia: 40 },
   ultra: { docs: 400, bytes: 2048 * 1024 * 1024, archivo: 20 * 1024 * 1024, paginasMes: 2000, preguntasDia: 100 },
 };

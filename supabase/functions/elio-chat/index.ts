@@ -1,4 +1,4 @@
-// ELIO by FlexGo Group · Función del servidor «elio-chat» (Supabase Edge Function, Deno) · v8 (créditos según el costo real; PDF como texto, modo MarkItDown) (motores Chispa, Pulso, Órbita y Cumbre con créditos por ventana; Gemini solo con nivel de pago)
+// ELIO by FlexGo Group · Función del servidor «elio-chat» (Supabase Edge Function, Deno) · v9 (Libre nuevo con probadita de Órbita) (créditos según el costo real; PDF como texto, modo MarkItDown) (motores Chispa, Pulso, Órbita y Cumbre con créditos por ventana; Gemini solo con nivel de pago)
 // - Invitados (sin cuenta): 4 preguntas al día, luego se les pide crear su cuenta gratis.
 // - Plan Libre e invitados: Claude Haiku (Gemini solo si GEMINI_NIVEL=pago, con Claude de respaldo).
 // - Planes Impulso y Ultra: Claude (Haiku 5.5 rápido/razonamiento, Sonnet 5.5 experto).
@@ -241,7 +241,7 @@ Deno.serve(async (req) => {
       ? [Number((await admin.rpc("elio_invitado_sumar", { h: huella })).data ?? INVITADO_MAX + 1), Number((await admin.rpc("elio_invitado_sumar", { h: huellaIp })).data ?? INVITADO_IP_MAX + 1)]
       : [INVITADO_MAX + 1, INVITADO_IP_MAX + 1];
     if (reserva[0] > INVITADO_MAX || reserva[1] > INVITADO_IP_MAX)
-      return json(c, 429, { mensaje: `Ya usaste tus ${INVITADO_MAX} preguntas sin cuenta. Crea tu cuenta gratis para seguir: tienes 20 créditos cada 5 horas y tu historial guardado.`, codigo: "registro" });
+      return json(c, 429, { mensaje: `Ya usaste tus ${INVITADO_MAX} preguntas sin cuenta. Crea tu cuenta gratis para seguir: tienes 10 créditos cada 5 horas, 3 mensajes con Órbita a la semana y tu historial guardado.`, codigo: "registro" });
     const hist: Msg[] = (Array.isArray(cuerpo.historial) ? cuerpo.historial : []).slice(-6)
       .filter((m) => (m.rol === "user" || m.rol === "assistant") && typeof m.contenido === "string")
       .map((m) => ({ role: m.rol as "user" | "assistant", content: m.contenido.slice(0, 3000) }));
@@ -332,18 +332,24 @@ Deno.serve(async (req) => {
   const tokensEntrada = charsEntrada / 3 + (bloqueAdjunto?.type === "image" ? 1600 : 0) + (bloqueAdjunto?.type === "document" ? (cuerpo.adjunto?.datos.length ?? 0) / 4 : 0);
   const creditosEstimados = creditosDe(motor, (tokensEntrada * M.pin + SALIDA_ESTIMADA[motor] * M.pout) / 1_000_000);
 
+  // Probadita de Órbita en Libre: solo mensajes cortos (para que nunca dé pérdida)
+  if (plan === "libre" && motor === "orbita" && creditosEstimados > 40)
+    return json(c, 429, { mensaje: "La probadita de Órbita es para mensajes cortos. Abre un chat nuevo y pregúntale de nuevo, o pásate a Impulso para usar Órbita sin límite de largo.", codigo: "cupo", mejora: true });
+
   // Se reservan los créditos ANTES de responder (atómico): así, varios mensajes a la vez no se saltan la ventana ni la semana.
   const { data: consumoId, error: errReserva } = await admin.rpc("elio_reservar", { u: user.id, m: motor, cr: creditosEstimados });
   if (errReserva) {
     const [tipoErr, cuando] = String(errReserva.message).split("|");
-    const msg = tipoErr.includes("MOTOR")
+    const msg = tipoErr.includes("PROBADITA")
+      ? `Ya usaste tus 3 mensajes con Órbita de esta semana. Vuelven el ${hora(cuando)}. Con Impulso usas Órbita cuando quieras.`
+      : tipoErr.includes("MOTOR")
       ? `${NOMBRE_MOTOR[motor]} no está en tu plan ${nombrePlan}. ${motor === "cumbre" ? "Cumbre está en Ultra." : "Pásate a Impulso o Ultra."}`
       : tipoErr.includes("VENTANA")
       ? (creditosEstimados > M.creditos
         ? `Este mensaje necesita unos ${creditosEstimados} créditos (la conversación o el documento son largos) y no te alcanzan en estas 5 horas. Abre un chat nuevo o usa Chispa, que gasta menos. Se renuevan el ${hora(cuando)}.`
         : `Usaste los créditos de estas 5 horas. Se renuevan el ${hora(cuando)}.${motor !== "chispa" ? " Puedes seguir con Chispa, que gasta menos." : ""}`)
       : tipoErr.includes("SEMANA") ? `Usaste los créditos de esta semana. Se renuevan el ${hora(cuando)}.` : "No pude revisar tus créditos. Inténtalo de nuevo.";
-    return json(c, tipoErr.includes("MOTOR") ? 403 : 429, { mensaje: msg, codigo: "cupo" });
+    return json(c, tipoErr.includes("MOTOR") ? 403 : 429, { mensaje: msg, codigo: "cupo", mejora: plan === "libre" });
   }
   await admin.rpc("elio_sumar_uso", { u: user.id, nivel, costo: 0, es_libre: plan === "libre" }); // estadística antigua (mensajes por día)
 

@@ -416,3 +416,10 @@ body.es-invitado .enc-vincular{display:none}
 .r-item .r-texto{flex:1;padding-left:1.6em;text-indent:-1.6em;font-size:13.5px;line-height:1.55;word-break:break-word}
 .f-partes{margin:6px 0 0 20px;padding:0;font-size:13px;color:#c3d1e8}
 .b-doc-cab .boton{width:auto;padding:5px 12px;font-size:12px;flex:none}
+
+/* v16: Libre nuevo, mejora y prueba */
+.mejora-caja{max-width:460px}
+.mejora-lista{margin:10px 0 14px 0;padding:0;list-style:none;display:grid;gap:6px;font-size:14px}
+.mejora-caja .a-fila .boton{width:auto;padding:9px 16px}
+.prueba-cinta{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center;margin:12px 0 4px;padding:10px 14px;border:1px solid rgba(0,198,235,.35);border-radius:14px;background:rgba(0,198,235,.08);font-size:14px}
+.prueba-cinta .boton{width:auto;padding:7px 14px}.prueba-cinta small{color:var(--suave)}
