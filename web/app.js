@@ -255,8 +255,19 @@ function burbujaElio() {
   };
 }
 
+const ES_RECORDATORIO = /^\s*(recu[eé]rdame|recordarme|recu[eé]rdales?|an[oó]tame|anota en mi d[ií]a|agrega a mi d[ií]a)\b/i;
 async function enviar(texto, adjunto) {
   if (E.enviando) return;
+  if (!E.invitado && E.sesion && !adjunto && ES_RECORDATORIO.test(texto || '') && !DEMO) {
+    E.enviando = true; $('#vacio').classList.add('oculto'); document.body.classList.remove('vacio');
+    burbujaYo(texto); const b = burbujaElio(); abajo();
+    try {
+      const j = await llamarBiblioteca({ accion: 'tarea', texto });
+      b.pintar(`Listo ✔ Lo anoté en **Mi día**: **${j.tarea.texto}**${j.tarea.fecha ? ` para el **${fechaBonita(j.tarea.fecha)}**` : ''}${j.tarea.hora ? ` a las ${j.tarea.hora.slice(0, 5)}` : ''}.\n\nPuedes verlo en el menú *Mi día*.`, true);
+    } catch (err) { b.pintar(err.message, true); }
+    finally { E.enviando = false; abajo(); }
+    return;
+  }
   if (E.invitado && E.restantes <= 0) return pedirCuenta('Ya usaste tus preguntas sin cuenta. Crea tu cuenta gratis para seguir: 20 mensajes al día y tu historial guardado.');
   const C = CUPOS[E.estado?.plan] || CUPOS.libre;
   if (!C[E.nivel]) { if (E.invitado) return pedirCuenta('Crea tu cuenta para usar los modos avanzados.'); toast(E.nivel === 'experto' ? 'El modo Experto está en el plan Ultra.' : 'El modo Razonamiento está en Impulso y Ultra.'); return abrirPlanes(); }
@@ -391,6 +402,70 @@ $('#f-pago').addEventListener('submit', async (e) => {
 $$('[data-cerrar]').forEach((b) => b.addEventListener('click', () => b.closest('.modal').classList.add('oculto')));
 $$('.modal').forEach((m) => m.addEventListener('click', (e) => { if (e.target === m && m.id !== 'nueva-clave') m.classList.add('oculto'); }));
 addEventListener('keydown', (e) => { if (e.key === 'Escape') $$('.modal').forEach((m) => m.id !== 'nueva-clave' && m.classList.add('oculto')); });
+
+// ---------- Mi día ----------
+const fechaBonita = (f) => new Date(f + 'T12:00').toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long', ...(f.slice(0, 4) !== String(new Date().getFullYear()) ? { year: 'numeric' } : {}) });
+$('#m-herramientas').addEventListener('click', () => {
+  if (!E.sesion) return pedirCuenta('Crea tu cuenta gratis para guardar tus tareas y recordatorios en Mi día.');
+  cerrarLateral(); abrirMiDia();
+});
+async function abrirMiDia() {
+  $('#midia').classList.remove('oculto');
+  $('#md-lista').innerHTML = '<p class="nota">Cargando…</p>';
+  const hasta = new Date(Date.now() + 30 * 864e5).toISOString().slice(0, 10);
+  const [{ data: est }, { data: tareas }, { data: venc }] = await Promise.all([
+    sb.rpc('elio_mi_dia_estado'),
+    sb.from('tareas').select('id,texto,fecha,hora,hecha,hecha_en').order('fecha', { ascending: true, nullsFirst: false }).order('hora', { nullsFirst: false }).limit(600),
+    sb.from('vencimientos').select('que,fecha').lte('fecha', hasta).order('fecha'),
+  ]);
+  const hoy = est?.hoy || new Date().toISOString().slice(0, 10);
+  const pago = ['impulso', 'ultra'].includes(est?.plan);
+  $('#md-correo').checked = !!est?.correo; $('#md-correo').disabled = !pago;
+  $('#md-correo-nota').textContent = pago ? 'Tus tareas del día y los vencimientos de tu Biblioteca. Solo llega si ese día hay algo.' : 'Disponible en los planes Impulso y Ultra.';
+  const pend = (tareas || []).filter((t) => !t.hecha);
+  const hechasHoy = (tareas || []).filter((t) => t.hecha && (t.hecha_en || '').slice(0, 10) >= hoy);
+  $('#md-cupo').textContent = `${pend.length} de ${est?.tope ?? 20} tareas pendientes`;
+  const fila = (t) => `<label class="md-tarea ${t.hecha ? 'hecha' : ''}"><input type="checkbox" data-hecha="${t.id}" ${t.hecha ? 'checked' : ''}><span>${esc(t.texto)}${t.hora ? ` <small>${t.hora.slice(0, 5)}</small>` : ''}${t.fecha && t.fecha > hoy ? ` <small>${fechaBonita(t.fecha)}</small>` : ''}</span><button type="button" class="icono" data-quitar="${t.id}" aria-label="Borrar tarea" title="Borrar">✕</button></label>`;
+  const grupo = (titulo, l, clase = '') => l.length ? `<h3 class="${clase}">${titulo}</h3>${l.map(fila).join('')}` : '';
+  const vs = (venc || []).filter((v) => v.fecha >= hoy);
+  $('#md-lista').innerHTML =
+    grupo('Atrasadas', pend.filter((t) => t.fecha && t.fecha < hoy), 'atrasada') +
+    grupo('Hoy', pend.filter((t) => t.fecha === hoy)) +
+    grupo('Próximas', pend.filter((t) => t.fecha && t.fecha > hoy)) +
+    grupo('Sin fecha', pend.filter((t) => !t.fecha)) +
+    (vs.length ? `<h3>Vencimientos de tu Biblioteca</h3>${vs.map((v) => `<div class="md-venc">📅 ${esc(v.que)} · ${fechaBonita(v.fecha)}</div>`).join('')}` : '') +
+    grupo('Hechas hoy', hechasHoy) ||
+    '<p class="nota">No tienes tareas. Escribe la primera arriba.</p>';
+}
+$('#md-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const texto = $('#md-texto').value.trim(); if (texto.length < 3) return;
+  const btn = e.submitter; btn.disabled = true;
+  try {
+    const j = await llamarBiblioteca({ accion: 'tarea', texto });
+    $('#md-texto').value = '';
+    toast(`Anotado ✔ ${j.tarea.texto}${j.tarea.fecha ? ' · ' + fechaBonita(j.tarea.fecha) : ''}`);
+    abrirMiDia();
+  } catch (err) { toast(err.message); } finally { btn.disabled = false; }
+});
+$('#md-lista').addEventListener('change', async (e) => {
+  const id = e.target.dataset.hecha; if (!id) return;
+  const { error } = await sb.from('tareas').update({ hecha: e.target.checked }).eq('id', Number(id));
+  if (error) { e.target.checked = !e.target.checked; return toast('No se pudo guardar.'); }
+  abrirMiDia();
+});
+$('#md-lista').addEventListener('click', async (e) => {
+  const id = e.target.closest('[data-quitar]')?.dataset.quitar; if (!id) return;
+  e.preventDefault();
+  const { error } = await sb.from('tareas').delete().eq('id', Number(id));
+  if (error) return toast('No se pudo borrar.');
+  abrirMiDia();
+});
+$('#md-correo').addEventListener('change', async (e) => {
+  const { error } = await sb.rpc('elio_mi_dia_correo', { activar: e.target.checked });
+  if (error) { e.target.checked = !e.target.checked; return toast(error.message); }
+  toast(e.target.checked ? 'Listo: cada mañana a las 7:00 te llega tu resumen ✔' : 'Resumen de la mañana apagado');
+});
 
 // ---------- Biblioteca (segundo cerebro) ----------
 const CUPOS_BIB = { libre: { docs: 5, mb: 25, archivo: 5, preguntas: 5 }, impulso: { docs: 100, mb: 500, archivo: 10, preguntas: 40 }, ultra: { docs: 400, mb: 2048, archivo: 20, preguntas: 100 } };
