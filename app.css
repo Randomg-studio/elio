@@ -321,3 +321,23 @@ body.es-invitado .solo-cuenta{display:none}
 .tabla-int .fila{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:6px;padding:8px 12px;border-bottom:1px solid var(--linea)}
 .tabla-int .fila:last-child{border-bottom:0}.tabla-int .cab{color:var(--suave);font-size:12px}
 #admin-intereses h4{margin:12px 0 4px;font-size:14px}
+
+/* v10: Biblioteca */
+em.nuevo{background:rgba(0,198,235,.16);color:var(--cian2)!important}
+.b-pregunta{display:flex;gap:8px;margin:12px 0}
+.b-pregunta input{flex:1;min-width:0;background:rgba(255,255,255,.05);border:1px solid var(--linea);border-radius:12px;color:var(--texto);padding:10px 12px;font:inherit;font-size:14px}
+.b-pregunta .boton{width:auto;padding:8px 16px}
+.b-respuesta{background:rgba(255,255,255,.04);border:1px solid var(--linea);border-radius:14px;padding:10px 14px;margin-bottom:12px;font-size:14px;line-height:1.55}
+.b-fuentes{font-size:12px;color:var(--suave);border-top:1px solid var(--linea);padding-top:6px;margin-top:8px}
+.b-barra{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:6px 0}
+.b-barra .boton{width:auto;padding:8px 14px;font-size:13px;cursor:pointer}
+.b-barra .boton.ocupado{opacity:.5;pointer-events:none}
+.b-lista{max-height:46vh;overflow:auto;display:grid;gap:8px;margin-top:6px}
+.b-doc{border:1px solid var(--linea);border-radius:14px;padding:10px 12px;background:rgba(255,255,255,.03);font-size:13.5px}
+.b-doc p{margin:6px 0 0;color:#c3d1e8}
+.b-doc-cab{display:flex;gap:8px;align-items:center}
+.b-doc-cab b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.b-doc-cab small{color:var(--suave);font-size:12px;white-space:nowrap}
+.b-borrar{width:28px;height:28px;font-size:13px}
+.b-venc{display:flex;gap:8px;align-items:flex-start;margin-top:8px;font-size:13px;cursor:pointer;background:rgba(0,198,235,.07);border-radius:10px;padding:6px 8px}
+.b-venc input{margin-top:2px;accent-color:var(--cian);flex:none}

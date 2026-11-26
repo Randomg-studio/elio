@@ -392,6 +392,86 @@ $$('[data-cerrar]').forEach((b) => b.addEventListener('click', () => b.closest('
 $$('.modal').forEach((m) => m.addEventListener('click', (e) => { if (e.target === m && m.id !== 'nueva-clave') m.classList.add('oculto'); }));
 addEventListener('keydown', (e) => { if (e.key === 'Escape') $$('.modal').forEach((m) => m.id !== 'nueva-clave' && m.classList.add('oculto')); });
 
+// ---------- Biblioteca (segundo cerebro) ----------
+const CUPOS_BIB = { libre: { docs: 5, mb: 25, archivo: 5, preguntas: 5 }, impulso: { docs: 100, mb: 500, archivo: 10, preguntas: 40 }, ultra: { docs: 400, mb: 2048, archivo: 20, preguntas: 100 } };
+async function llamarBiblioteca(cuerpo) {
+  const { data } = await sb.auth.getSession();
+  const r = await fetch(`${CFG.SUPABASE_URL}/functions/v1/elio-biblioteca`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: CFG.SUPABASE_KEY, Authorization: `Bearer ${data.session?.access_token}` },
+    body: JSON.stringify(cuerpo),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.mensaje || 'No se pudo completar. Inténtalo de nuevo.');
+  return j;
+}
+$('#m-biblioteca').addEventListener('click', () => {
+  if (!E.sesion) return pedirCuenta('Crea tu cuenta gratis para guardar tus documentos en tu Biblioteca.');
+  cerrarLateral(); abrirBiblioteca();
+});
+async function abrirBiblioteca() {
+  $('#biblioteca').classList.remove('oculto');
+  $('#b-estado').textContent = ''; $('#b-lista').innerHTML = '<p class="nota">Cargando…</p>';
+  const [{ data: docs }, { data: venc }] = await Promise.all([
+    sb.from('documentos').select('id,nombre,paginas,resumen,estado,bytes,creado').order('creado', { ascending: false }),
+    sb.from('vencimientos').select('id,documento,que,fecha,avisar,dias_antes').order('fecha'),
+  ]);
+  const C = CUPOS_BIB[E.estado?.plan] || CUPOS_BIB.libre;
+  const mb = (docs || []).reduce((a, d) => a + d.bytes, 0) / 1048576;
+  $('#b-cupos').textContent = `${(docs || []).length} de ${C.docs} documentos · ${mb.toFixed(1)} de ${C.mb >= 1024 ? C.mb / 1024 + ' GB' : C.mb + ' MB'} · ${C.preguntas} preguntas al día`;
+  const hoy = new Date().toISOString().slice(0, 10);
+  $('#b-lista').innerHTML = (docs || []).length ? docs.map((d) => {
+    const vs = (venc || []).filter((v) => v.documento === d.id && v.fecha >= hoy);
+    return `<div class="b-doc" data-id="${d.id}">
+      <div class="b-doc-cab"><b>${d.estado === 'listo' ? '📄' : '⏳'} ${esc(d.nombre)}</b><small>${d.paginas} pág. · ${new Date(d.creado).toLocaleDateString('es-PE', { day: 'numeric', month: 'short' })}</small><button class="icono b-borrar" data-borrar="${d.id}" title="Borrar documento" aria-label="Borrar documento">🗑</button></div>
+      ${d.resumen ? `<p>${esc(d.resumen)}</p>` : ''}
+      ${vs.map((v) => `<label class="b-venc"><input type="checkbox" data-venc="${v.id}" ${v.avisar ? 'checked' : ''}> <span>📅 <b>${esc(v.que)}</b>: vence el ${new Date(v.fecha + 'T12:00').toLocaleDateString('es-PE', { day: 'numeric', month: 'long', year: 'numeric' })}. Avisarme por correo ${v.dias_antes} días antes</span></label>`).join('')}
+    </div>`;
+  }).join('') : '<p class="nota">Aún no tienes documentos. Sube el primero con «+ Subir documento».</p>';
+}
+$('#b-archivo').addEventListener('change', async (e) => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  const C = CUPOS_BIB[E.estado?.plan] || CUPOS_BIB.libre;
+  if (!['application/pdf', 'image/png', 'image/jpeg', 'image/webp'].includes(f.type)) return toast('Solo PDF o imágenes (PNG, JPG, WEBP).');
+  if (f.size > C.archivo * 1048576) return toast(`El archivo pesa más de ${C.archivo} MB, el máximo de tu plan.`);
+  $('#b-subir-btn').classList.add('ocupado');
+  $('#b-estado').textContent = `Subiendo «${f.name}»…`;
+  try {
+    const ext = { 'application/pdf': 'pdf', 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' }[f.type];
+    const ruta = `${E.sesion.user.id}/${crypto.randomUUID()}.${ext}`;
+    const { error } = await sb.storage.from('biblioteca').upload(ruta, f, { contentType: f.type, upsert: false });
+    if (error) throw new Error('No se pudo subir el archivo. Inténtalo de nuevo.');
+    $('#b-estado').textContent = `Elio está leyendo «${f.name}»… (puede tardar unos segundos)`;
+    const j = await llamarBiblioteca({ accion: 'procesar', ruta, nombre: f.name });
+    const vs = j.vencimientos || [];
+    $('#b-estado').textContent = vs.length
+      ? `Listo ✔ Encontré ${vs.length === 1 ? 'una fecha importante' : vs.length + ' fechas importantes'}. Marca «Avisarme» si quieres un correo antes de que venza.`
+      : 'Listo ✔ Ya puedes preguntarle a Elio sobre este documento.';
+    abrirBiblioteca();
+  } catch (err) { $('#b-estado').textContent = ''; toast(err.message); }
+  finally { $('#b-subir-btn').classList.remove('ocupado'); }
+});
+$('#b-lista').addEventListener('click', async (e) => {
+  const id = e.target.dataset.borrar; if (!id) return;
+  if (!confirm('¿Borrar este documento de tu Biblioteca? Se borra el archivo y todo lo que Elio leyó de él.')) return;
+  try { await llamarBiblioteca({ accion: 'borrar', documento: id }); toast('Documento borrado ✔'); abrirBiblioteca(); } catch (err) { toast(err.message); }
+});
+$('#b-lista').addEventListener('change', async (e) => {
+  const v = e.target.dataset.venc; if (!v) return;
+  const { error } = await sb.rpc('elio_aviso_vencimiento', { v: Number(v), activar: e.target.checked, dias: 15 });
+  if (error) { e.target.checked = !e.target.checked; return toast('No se pudo guardar el aviso.'); }
+  toast(e.target.checked ? 'Te avisaremos por correo 15 días antes ✔' : 'Aviso apagado');
+});
+$('#b-preguntar').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const q = $('#b-pregunta').value.trim(); if (q.length < 3) return;
+  const caja = $('#b-respuesta'); caja.classList.remove('oculto'); caja.innerHTML = '<p class="nota">Buscando en tus documentos…</p>';
+  try {
+    const j = await llamarBiblioteca({ accion: 'preguntar', pregunta: q });
+    caja.innerHTML = md(j.respuesta) + ((j.fuentes || []).length ? `<p class="b-fuentes">Fuentes: ${j.fuentes.map((f) => `${esc(f.nombre)}${f.pagina ? ', pág. ' + f.pagina : ''}`).join(' · ')}</p>` : '');
+  } catch (err) { caja.innerHTML = `<p class="nota">${esc(err.message)}</p>`; }
+});
+
 // ---------- Privacidad y mis datos ----------
 const NOMBRE_SERVICIO = { logrin: 'Logrin', creago: 'CreaGo', kivo: 'Kivo', paginas_web: 'Páginas web', eleva: 'Eleva' };
 let misDatos = null;

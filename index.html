@@ -10,7 +10,7 @@
 <link rel="apple-touch-icon" href="img/Elio_Icono-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="app.css?v=9">
+<link rel="stylesheet" href="app.css?v=10">
 </head>
 <body>
 <!-- Iconos (SVG reutilizables) -->
@@ -113,7 +113,7 @@
     <nav class="menu" aria-label="Secciones">
       <button class="on" id="m-inicio"><svg><use href="#i-casa"/></svg>Inicio</button>
       <button data-pronto="Herramientas"><svg><use href="#i-cuadros"/></svg>Herramientas<em>Pronto</em></button>
-      <button data-pronto="Biblioteca"><svg><use href="#i-capas"/></svg>Biblioteca<em>Pronto</em></button>
+      <button id="m-biblioteca"><svg><use href="#i-capas"/></svg>Biblioteca<em class="nuevo">Nuevo</em></button>
       <button data-pronto="Mis proyectos"><svg><use href="#i-carpeta"/></svg>Mis proyectos<em>Pronto</em></button>
     </nav>
     <div class="lat-recientes">
@@ -241,6 +241,26 @@
   </form>
 </div>
 
+<!-- Biblioteca (segundo cerebro) -->
+<div id="biblioteca" class="modal oculto" role="dialog" aria-modal="true" aria-labelledby="biblioteca-t">
+  <div class="modal-caja ancha vidrio">
+    <button class="icono cerrar" data-cerrar aria-label="Cerrar">✕</button>
+    <h2 id="biblioteca-t">Mi Biblioteca</h2>
+    <p class="nota">Sube tus PDF y fotos de documentos (contratos, seguros, recibos, apuntes) y pregúntale a Elio. Responde citando el documento y la página. Tus archivos son privados: solo tú puedes verlos.</p>
+    <form id="b-preguntar" class="b-pregunta">
+      <input id="b-pregunta" maxlength="1000" placeholder="Ej.: ¿Cuándo vence mi seguro?" aria-label="Pregunta a tu Biblioteca" autocomplete="off">
+      <button class="boton principal" type="submit">Preguntar</button>
+    </form>
+    <div id="b-respuesta" class="b-respuesta oculto"></div>
+    <div class="b-barra">
+      <span id="b-cupos" class="nota"></span>
+      <label class="boton" id="b-subir-btn"><input type="file" id="b-archivo" accept="application/pdf,image/png,image/jpeg,image/webp" hidden>+ Subir documento</label>
+    </div>
+    <div id="b-estado" class="nota" role="status"></div>
+    <div id="b-lista" class="b-lista"></div>
+  </div>
+</div>
+
 <!-- Privacidad y mis datos (derechos ARCO, Ley 29733) -->
 <div id="privacidad" class="modal oculto" role="dialog" aria-modal="true" aria-labelledby="privacidad-t">
   <div class="modal-caja ancha vidrio">
@@ -283,6 +303,6 @@
 
 <div id="toast" role="status"></div>
 <script src="config.js?v=1"></script>
-<script type="module" src="app.js?v=7"></script>
+<script type="module" src="app.js?v=8"></script>
 </body>
 </html>
