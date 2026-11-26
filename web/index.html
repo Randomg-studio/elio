@@ -10,7 +10,7 @@
 <link rel="apple-touch-icon" href="img/Elio_Icono-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="app.css?v=11">
+<link rel="stylesheet" href="app.css?v=12">
 </head>
 <body>
 <!-- Iconos (SVG reutilizables) -->
@@ -262,18 +262,36 @@
   <div class="modal-caja ancha vidrio">
     <button class="icono cerrar" data-cerrar aria-label="Cerrar">✕</button>
     <h2 id="biblioteca-t">Mi Biblioteca</h2>
-    <p class="nota">Sube tus PDF y fotos de documentos (contratos, seguros, recibos, apuntes) y pregúntale a Elio. Responde citando el documento y la página. Tus archivos son privados: solo tú puedes verlos.</p>
+    <p class="nota">Tu segundo cerebro: guarda documentos y lo que aprendes, y pregúntale a Elio. Responde citando la fuente. Todo es privado: solo tú lo ves.</p>
     <form id="b-preguntar" class="b-pregunta">
-      <input id="b-pregunta" maxlength="1000" placeholder="Ej.: ¿Cuándo vence mi seguro?" aria-label="Pregunta a tu Biblioteca" autocomplete="off">
+      <input id="b-pregunta" maxlength="1000" placeholder="Ej.: ¿Cuándo vence mi seguro? · ¿Qué aprendí sobre ventas?" aria-label="Pregunta a tu Biblioteca" autocomplete="off">
       <button class="boton principal" type="submit">Preguntar</button>
     </form>
     <div id="b-respuesta" class="b-respuesta oculto"></div>
+    <div class="b-pestanas" role="tablist">
+      <button type="button" class="on" data-bpest="docs" role="tab">📄 Documentos</button>
+      <button type="button" data-bpest="apr" role="tab">🧠 Aprendizajes</button>
+    </div>
+    <div id="b-apr" class="oculto">
+      <form id="a-form" class="a-form">
+        <div class="a-fila">
+          <select id="a-tipo" aria-label="Tipo"><option value="libro">📚 Libro</option><option value="articulo">📰 Artículo</option><option value="video">🎬 Video</option><option value="curso">🎓 Curso</option><option value="podcast">🎧 Podcast</option><option value="otro">✨ Otro</option></select>
+          <input id="a-titulo" maxlength="160" placeholder="Título (ej.: Hábitos atómicos)" aria-label="Título" required>
+        </div>
+        <input id="a-enlace" maxlength="500" type="url" placeholder="Enlace (opcional)" aria-label="Enlace opcional">
+        <textarea id="a-texto" maxlength="30000" rows="4" placeholder="Escribe lo que aprendiste o pega el texto o la transcripción. Elio arma el resumen y las ideas clave." aria-label="Tus notas"></textarea>
+        <div class="a-fila fin"><span class="nota" id="a-cupo"></span><button class="boton principal" type="submit">Guardar aprendizaje</button></div>
+      </form>
+      <div id="a-lista" class="b-lista"></div>
+    </div>
+    <div id="b-docs">
     <div class="b-barra">
       <span id="b-cupos" class="nota"></span>
       <label class="boton" id="b-subir-btn"><input type="file" id="b-archivo" accept="application/pdf,image/png,image/jpeg,image/webp" hidden>+ Subir documento</label>
     </div>
     <div id="b-estado" class="nota" role="status"></div>
     <div id="b-lista" class="b-lista"></div>
+    </div>
   </div>
 </div>
 
@@ -319,6 +337,6 @@
 
 <div id="toast" role="status"></div>
 <script src="config.js?v=1"></script>
-<script type="module" src="app.js?v=9"></script>
+<script type="module" src="app.js?v=10"></script>
 </body>
 </html>

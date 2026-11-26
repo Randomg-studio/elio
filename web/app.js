@@ -543,8 +543,46 @@ $('#b-preguntar').addEventListener('submit', async (e) => {
   const caja = $('#b-respuesta'); caja.classList.remove('oculto'); caja.innerHTML = '<p class="nota">Buscando en tus documentos…</p>';
   try {
     const j = await llamarBiblioteca({ accion: 'preguntar', pregunta: q });
-    caja.innerHTML = md(j.respuesta) + ((j.fuentes || []).length ? `<p class="b-fuentes">Fuentes: ${j.fuentes.map((f) => `${esc(f.nombre)}${f.pagina ? ', pág. ' + f.pagina : ''}`).join(' · ')}</p>` : '');
+    caja.innerHTML = md(j.respuesta) + ((j.fuentes || []).length ? `<p class="b-fuentes">Fuentes: ${j.fuentes.map((f) => f.aprendizaje ? `🧠 «${esc(f.nombre)}»` : `📄 ${esc(f.nombre)}${f.pagina ? ', pág. ' + f.pagina : ''}`).join(' · ')}</p>` : '');
   } catch (err) { caja.innerHTML = `<p class="nota">${esc(err.message)}</p>`; }
+});
+
+// ---------- Biblioteca de vida (aprendizajes) ----------
+const TOPE_APR = { libre: 20, impulso: 300, ultra: 1000 };
+const ICONO_APR = { libro: '📚', articulo: '📰', video: '🎬', curso: '🎓', podcast: '🎧', otro: '✨' };
+$$('[data-bpest]').forEach((b) => b.addEventListener('click', () => {
+  $$('[data-bpest]').forEach((x) => x.classList.toggle('on', x === b));
+  $('#b-docs').classList.toggle('oculto', b.dataset.bpest !== 'docs');
+  $('#b-apr').classList.toggle('oculto', b.dataset.bpest !== 'apr');
+  if (b.dataset.bpest === 'apr') cargarAprendizajes();
+}));
+async function cargarAprendizajes() {
+  $('#a-lista').innerHTML = '<p class="nota">Cargando…</p>';
+  const { data } = await sb.from('aprendizajes').select('id,tipo,titulo,enlace,resumen,ideas,etiquetas,creado').order('creado', { ascending: false }).limit(300);
+  const l = data || [];
+  $('#a-cupo').textContent = `${l.length} de ${TOPE_APR[E.estado?.plan] || 20} guardados`;
+  $('#a-lista').innerHTML = l.length ? l.map((a) => `<div class="b-doc">
+      <div class="b-doc-cab"><b>${ICONO_APR[a.tipo] || '✨'} ${esc(a.titulo)}</b><small>${new Date(a.creado).toLocaleDateString('es-PE', { day: 'numeric', month: 'short' })}</small><button class="icono b-borrar" data-borrar-apr="${a.id}" title="Borrar" aria-label="Borrar aprendizaje">🗑</button></div>
+      ${a.resumen ? `<p>${esc(a.resumen)}</p>` : ''}
+      ${(a.ideas || []).length ? `<ul class="a-ideas">${a.ideas.map((i) => `<li>${esc(i)}</li>`).join('')}</ul>` : ''}
+      <div class="a-pie">${(a.etiquetas || []).map((e) => `<span class="p-serv">#${esc(e)}</span>`).join(' ')}${a.enlace ? ` <a href="${esc(a.enlace)}" target="_blank" rel="noopener nofollow">Abrir enlace ↗</a>` : ''}</div>
+    </div>`).join('') : '<p class="nota">Aún no guardas aprendizajes. Anota el primero: un libro, un video o un curso.</p>';
+}
+$('#a-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = e.submitter; btn.disabled = true; const txt = btn.textContent; btn.textContent = 'Elio está resumiendo…';
+  try {
+    await llamarBiblioteca({ accion: 'aprender', tipo: $('#a-tipo').value, titulo: $('#a-titulo').value.trim(), enlace: $('#a-enlace').value.trim(), texto: $('#a-texto').value.trim() });
+    $('#a-titulo').value = ''; $('#a-enlace').value = ''; $('#a-texto').value = '';
+    toast('Guardado ✔ Ya puedes preguntarle a Elio sobre esto.'); cargarAprendizajes();
+  } catch (err) { toast(err.message); } finally { btn.disabled = false; btn.textContent = txt; }
+});
+$('#a-lista').addEventListener('click', async (e) => {
+  const id = e.target.dataset.borrarApr; if (!id) return;
+  if (!confirm('¿Borrar este aprendizaje?')) return;
+  const { error } = await sb.from('aprendizajes').delete().eq('id', Number(id));
+  if (error) return toast('No se pudo borrar.');
+  toast('Borrado ✔'); cargarAprendizajes();
 });
 
 // ---------- Privacidad y mis datos ----------
