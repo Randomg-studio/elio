@@ -1,6 +1,6 @@
-// ELIO by FlexGo Group · Función del servidor «elio-chat» (Supabase Edge Function, Deno) · v5 (intereses con permiso, recomendaciones y memoria aprobada)
+// ELIO by FlexGo Group · Función del servidor «elio-chat» (Supabase Edge Function, Deno) · v6 (Gemini solo con nivel de pago; si no, Claude Haiku)
 // - Invitados (sin cuenta): 4 preguntas al día, luego se les pide crear su cuenta gratis.
-// - Plan Libre e invitados: Gemini (si falla o no hay cuota, responde Claude Haiku como respaldo).
+// - Plan Libre e invitados: Claude Haiku (Gemini solo si GEMINI_NIVEL=pago, con Claude de respaldo).
 // - Planes Impulso y Ultra: Claude (Haiku 5.5 rápido/razonamiento, Sonnet 5.5 experto).
 //
 // Secretos (Supabase › Edge Functions › Secrets; los pone el dueño, nunca en el código):
@@ -25,9 +25,11 @@ const MODELOS: Record<Nivel, { model: string; effort: "low" | "medium" | "high";
   razonamiento: { model: "claude-haiku-5-5", effort: "high", maxTokens: 12000, pin: 0.1, pout: 0.5 },
   experto: { model: "claude-sonnet-5-5", effort: "medium", maxTokens: 16000, pin: 2, pout: 10 },
 };
-const GEMINI_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
-const GEMINI_MODELOS = (Deno.env.get("MODELO_GEMINI") ?? "gemini-3.8-flash-lite,gemini-3.8-flash").split(",").map((s) => s.trim()).filter(Boolean);
-const GEMINI_PRECIO = { pin: 0.1, pout: 0.4 };
+// Gemini solo se usa si el proyecto de Google tiene FACTURACIÓN (nivel de pago) y se marca GEMINI_NIVEL=pago.
+// En el nivel gratis Google usa el contenido para mejorar sus productos: por privacidad, sin esa marca todo va con Claude Haiku.
+const GEMINI_KEY = (Deno.env.get("GEMINI_NIVEL") ?? "") === "pago" ? (Deno.env.get("GEMINI_API_KEY") ?? "") : "";
+const GEMINI_MODELOS = (Deno.env.get("MODELO_GEMINI") ?? "gemini-3.1-flash-lite").split(",").map((s) => s.trim()).filter(Boolean);
+const GEMINI_PRECIO = { pin: 0.25, pout: 1.5 }; // Gemini 3.1 Flash-Lite, nivel de pago (ai.google.dev/pricing, 26-nov-2026)
 
 const TOPE_LIBRE = Number(Deno.env.get("TOPE_LIBRE_USD") ?? "1");
 const TOPE_TOTAL = Number(Deno.env.get("TOPE_TOTAL_USD") ?? "15");
