@@ -18,6 +18,13 @@ const CUPOS = {
 };
 
 marked.setOptions({ breaks: true, gfm: true });
+// Enlaces de las respuestas: siempre se pueden pulsar, se abren en otra pestaña y solo aceptan http, https o mailto
+DOMPurify.addHook('afterSanitizeAttributes', (n) => {
+  if (n.tagName !== 'A') return;
+  const h = (n.getAttribute('href') || '').trim();
+  if (!/^(https?:\/\/|mailto:)/i.test(h)) { n.removeAttribute('href'); return; }
+  n.setAttribute('target', '_blank'); n.setAttribute('rel', 'noopener noreferrer nofollow');
+});
 const md = (t) => DOMPurify.sanitize(marked.parse(t || ''), { ADD_ATTR: ['target'] });
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('ver'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('ver'), 3200); }
@@ -239,7 +246,7 @@ function burbujaElio() {
   return {
     pintar(t, final) {
       cuerpo.innerHTML = md(t);
-      cuerpo.querySelectorAll('a').forEach((a) => { a.target = '_blank'; a.rel = 'noopener'; });
+      cuerpo.querySelectorAll('a').forEach((a) => { a.target = '_blank'; a.rel = 'noopener noreferrer nofollow'; });
       if (final) {
         const acc = document.createElement('div'); acc.className = 'acciones';
         acc.innerHTML = '<button data-a="copiar">📋 Copiar</button>';
@@ -629,7 +636,7 @@ function servicioDeEnlace(u) {
 }
 $('#mensajes').addEventListener('click', (e) => {
   const a = e.target.closest('a[href]'); if (!a) return;
-  if (!a.target) { a.target = '_blank'; a.rel = 'noopener'; }
+  if (!a.target) { a.target = '_blank'; a.rel = 'noopener noreferrer nofollow'; }
   const serv = servicioDeEnlace(a.href);
   if (serv && sb && E.sesion && !DEMO) sb.rpc('elio_clic_recomendacion', { serv, conv: E.conv || null });
 });
