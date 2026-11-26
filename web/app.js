@@ -440,7 +440,7 @@ async function abrirMiDia() {
 $('#md-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const texto = $('#md-texto').value.trim(); if (texto.length < 3) return;
-  const btn = e.submitter; btn.disabled = true;
+  const btn = e.submitter || e.target.querySelector('button[type=submit]'); btn.disabled = true;
   try {
     const j = await llamarBiblioteca({ accion: 'tarea', texto });
     $('#md-texto').value = '';
@@ -570,7 +570,7 @@ async function cargarAprendizajes() {
 }
 $('#a-form').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const btn = e.submitter; btn.disabled = true; const txt = btn.textContent; btn.textContent = 'Elio está resumiendo…';
+  const btn = e.submitter || e.target.querySelector('button[type=submit]'); btn.disabled = true; const txt = btn.textContent; btn.textContent = 'Elio está resumiendo…';
   try {
     await llamarBiblioteca({ accion: 'aprender', tipo: $('#a-tipo').value, titulo: $('#a-titulo').value.trim(), enlace: $('#a-enlace').value.trim(), texto: $('#a-texto').value.trim() });
     $('#a-titulo').value = ''; $('#a-enlace').value = ''; $('#a-texto').value = '';
