@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Trae tu historial · Elio</title>
+<meta name="description" content="Cómo traer a Elio lo que ChatGPT, Claude o Gemini saben de ti, paso a paso en celular y computadora.">
+<link rel="icon" href="img/Elio_Icono-48.png">
+<style>
+:root{--fondo:#F1F6FB;--texto:#18283F;--titulo:#102449;--suave:#5b6b85;--caja:#fff;--linea:#DCE3EE;--acento:#0756D8;--acento2:#00a8c9}
+@media(prefers-color-scheme:dark){:root{--fondo:#0b1830;--texto:#e6eef9;--titulo:#fff;--suave:#9fb0c8;--caja:#10213d;--linea:#22385c;--acento:#00C6EB;--acento2:#22e4ff}}
+*{box-sizing:border-box}
+body{font-family:Manrope,system-ui,-apple-system,sans-serif;margin:0;background:var(--fondo);color:var(--texto);line-height:1.6}
+main{max-width:820px;margin:0 auto;padding:28px 16px 60px}
+a{color:var(--acento)}
+h1{color:var(--titulo);font-size:clamp(26px,5vw,36px);margin:10px 0 6px}
+h2{color:var(--titulo);font-size:20px;margin:0 0 6px}
+h3{font-size:15px;margin:16px 0 6px;color:var(--titulo)}
+.sub{color:var(--suave);margin:0 0 20px}
+.pestanas{display:flex;gap:6px;flex-wrap:wrap;margin:18px 0 14px}
+.pestanas button{border:1px solid var(--linea);background:var(--caja);color:var(--texto);border-radius:999px;padding:8px 16px;font:inherit;font-size:14px;cursor:pointer}
+.pestanas button.on{border-color:var(--acento);box-shadow:0 0 0 2px color-mix(in srgb,var(--acento) 25%,transparent)}
+section{background:var(--caja);border:1px solid var(--linea);border-radius:18px;padding:20px 22px;margin-bottom:16px}
+section[hidden]{display:none}
+ol{padding-left:22px;margin:6px 0}
+li{margin:4px 0}
+.ruta{font-weight:700}
+.dato{font-size:13.5px;color:var(--suave);background:color-mix(in srgb,var(--acento) 8%,transparent);border-radius:10px;padding:8px 12px;margin-top:10px}
+blockquote{margin:8px 0;padding:10px 14px;border-left:4px solid var(--acento2);background:color-mix(in srgb,var(--acento2) 8%,transparent);border-radius:8px}
+.copiar{border:0;background:var(--acento);color:#fff;border-radius:10px;padding:8px 14px;font:inherit;font-size:14px;cursor:pointer}
+.pronto{font-size:12px;padding:2px 9px;border-radius:999px;background:color-mix(in srgb,var(--acento) 15%,transparent);color:var(--acento)}
+.volver{display:inline-block;margin-bottom:6px}
+</style>
+</head>
+<body>
+<main>
+  <a class="volver" href="./">← Volver a Elio</a>
+  <h1>Trae tu historial a Elio</h1>
+  <p class="sub">Haz que Elio te conozca desde el primer día con lo que ya sabe de ti ChatGPT, Claude o Gemini. Es tu información: tú decides qué traes y la puedes borrar cuando quieras.</p>
+
+  <div class="pestanas" role="tablist">
+    <button class="on" data-tab="rapido" role="tab">⚡ Opción rápida</button>
+    <button data-tab="chatgpt" role="tab">ChatGPT</button>
+    <button data-tab="claude" role="tab">Claude</button>
+    <button data-tab="gemini" role="tab">Gemini</button>
+  </div>
+
+  <section id="rapido">
+    <h2>⚡ Opción rápida: copiar y pegar (1 minuto)</h2>
+    <p>Funciona con cualquier IA, en el celular o en la computadora.</p>
+    <ol>
+      <li>Copia este texto:
+        <blockquote id="prompt">Resume en viñetas lo que sabes de mí: a qué me dedico, mis proyectos actuales, mis metas, cómo prefiero que me respondas y los temas que más te pregunto. No incluyas contraseñas, datos de tarjetas, documentos de identidad ni datos de salud.</blockquote>
+        <button class="copiar" id="copiar" type="button">Copiar el texto</button></li>
+      <li>Ábrelo en tu otra IA (<a href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">ChatGPT</a>, <a href="https://claude.ai/" target="_blank" rel="noopener noreferrer">Claude</a> o <a href="https://gemini.google.com/" target="_blank" rel="noopener noreferrer">Gemini</a>), pégalo y envíalo.</li>
+      <li>Copia la respuesta completa.</li>
+      <li>En Elio, abre <span class="ruta">Biblioteca › 🔄 Trae tu historial</span>, elige de qué IA vienes y pega la respuesta en el recuadro.</li>
+      <li>Toca <span class="ruta">Crear mi memoria</span>, revisa lo que Elio entendió, corrige lo que quieras y toca <span class="ruta">Aprobar y usar</span>.</li>
+    </ol>
+    <p class="dato">Elio solo usa lo que tú apruebas. Si el texto trae contraseñas, claves o tarjetas, Elio las tapa y no las guarda.</p>
+  </section>
+
+  <section id="chatgpt" hidden>
+    <h2>Descargar tu historial de ChatGPT</h2>
+    <h3>En la computadora</h3>
+    <ol>
+      <li>Entra a <a href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">chatgpt.com</a> con tu cuenta.</li>
+      <li>Abre el menú de tu perfil y elige <span class="ruta">Settings</span> (Configuración).</li>
+      <li>Entra a <span class="ruta">Data controls</span> (Controles de datos).</li>
+      <li>En <span class="ruta">Export data</span> (Exportar datos), toca <span class="ruta">Export</span> y luego <span class="ruta">Confirm export</span>.</li>
+    </ol>
+    <h3>En el celular</h3>
+    <ol>
+      <li>En la app de ChatGPT, abre tu cuenta o <span class="ruta">Settings</span>.</li>
+      <li>Entra a <span class="ruta">Data controls › Export data</span> y confirma.</li>
+      <li>Si la app te ofrece <span class="ruta">Open ChatGPT on web</span>, ábrelo, entra con la misma cuenta y sigue los pasos de la computadora.</li>
+    </ol>
+    <p class="dato">Te llega un correo con un enlace para descargar un archivo ZIP. <b>El enlace dura 24 horas.</b> Si no abre en el celular, ábrelo en una computadora con tu cuenta iniciada. Fuente: Centro de ayuda de OpenAI, «Exporting your ChatGPT history and data».</p>
+    <p>Subir el ZIP completo a Elio: <span class="pronto">Muy pronto</span>. Mientras tanto, usa la <a href="#" data-ir="rapido">opción rápida</a>.</p>
+  </section>
+
+  <section id="claude" hidden>
+    <h2>Descargar tu historial de Claude</h2>
+    <h3>En la computadora (web o app de escritorio)</h3>
+    <ol>
+      <li>Entra a <a href="https://claude.ai/" target="_blank" rel="noopener noreferrer">claude.ai</a> con tu cuenta.</li>
+      <li>Toca tus iniciales (abajo a la izquierda) y elige <span class="ruta">Settings</span>.</li>
+      <li>Entra a <span class="ruta">Privacy</span> (Privacidad) y toca <span class="ruta">Export data</span> (Exportar datos).</li>
+    </ol>
+    <h3>En el celular</h3>
+    <p>La app de Claude para celular no tiene esta opción: haz la descarga desde una computadora. El correo sí lo puedes abrir en el celular.</p>
+    <p class="dato">Te llega un correo con un enlace a un ZIP con tus conversaciones. <b>El enlace dura 24 horas</b> y hay que tener la sesión de Claude iniciada para descargarlo.</p>
+    <p>Subir el ZIP completo a Elio: <span class="pronto">Muy pronto</span>. Mientras tanto, usa la <a href="#" data-ir="rapido">opción rápida</a>.</p>
+  </section>
+
+  <section id="gemini" hidden>
+    <h2>Descargar tu historial de Gemini</h2>
+    <h3>En la computadora o el celular (con el navegador)</h3>
+    <ol>
+      <li>Entra a <a href="https://takeout.google.com/" target="_blank" rel="noopener noreferrer">takeout.google.com</a> con la misma cuenta de Google que usas en Gemini.</li>
+      <li>Toca <span class="ruta">Desmarcar todo</span>.</li>
+      <li>Marca <span class="ruta">Mi Actividad</span> y toca <span class="ruta">Se han incluido todos los datos de actividades</span>.</li>
+      <li>En la ventana, toca <span class="ruta">Desmarcar todo</span>, marca solo <span class="ruta">Aplicaciones de Gemini</span> y toca <span class="ruta">Aceptar</span>.</li>
+      <li>Baja y toca <span class="ruta">Siguiente paso</span>. Elige <span class="ruta">Enviar enlace de descarga por correo</span>, <span class="ruta">Exportar una vez</span> y el formato <span class="ruta">.zip</span>.</li>
+      <li>Toca <span class="ruta">Crear exportación</span>.</li>
+    </ol>
+    <p class="dato">Puede tardar desde unas horas hasta varios días (casi siempre llega el mismo día). <b>El enlace dura 7 días.</b> Fuente: Ayuda de Aplicaciones de Gemini, «Descargar tus datos de las aplicaciones de Gemini».</p>
+    <p>Subir el ZIP completo a Elio: <span class="pronto">Muy pronto</span>. Mientras tanto, usa la <a href="#" data-ir="rapido">opción rápida</a>.</p>
+  </section>
+
+  <p class="sub">Tu privacidad: Elio nunca entra a tus cuentas de otras IA. Solo usa lo que tú pegas o subes, solo tú lo ves y lo puedes borrar cuando quieras. Más en la <a href="privacidad.html">Política de privacidad</a>.</p>
+</main>
+<script>
+const ir = (id) => {
+  document.querySelectorAll('section').forEach((s) => { s.hidden = s.id !== id; });
+  document.querySelectorAll('[data-tab]').forEach((b) => b.classList.toggle('on', b.dataset.tab === id));
+};
+document.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => ir(b.dataset.tab)));
+document.querySelectorAll('[data-ir]').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); ir(a.dataset.ir); scrollTo({ top: 0, behavior: 'smooth' }); }));
+if (['chatgpt', 'claude', 'gemini'].includes(location.hash.slice(1))) ir(location.hash.slice(1));
+document.getElementById('copiar').addEventListener('click', (e) => {
+  navigator.clipboard.writeText(document.getElementById('prompt').textContent).then(() => { e.target.textContent = 'Copiado ✔'; setTimeout(() => { e.target.textContent = 'Copiar el texto'; }, 2000); });
+});
+</script>
+</body>
+</html>

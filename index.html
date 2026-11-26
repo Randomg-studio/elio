@@ -10,7 +10,7 @@
 <link rel="apple-touch-icon" href="img/Elio_Icono-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="app.css?v=12">
+<link rel="stylesheet" href="app.css?v=13">
 </head>
 <body>
 <!-- Iconos (SVG reutilizables) -->
@@ -163,6 +163,7 @@
       <div id="vacio">
         <div class="hero-logo"><img src="img/Elio_Avatar-160.webp" alt="" width="104" height="104"><h2>Elio <span>IA</span></h2></div>
         <p class="hero-sub" id="saludo">Tu asistente de inteligencia artificial para crear, analizar y potenciar tus ideas.</p>
+        <button class="gancho-historial" id="gancho-historial" type="button">🔄 <b>Migra tu historial de ChatGPT</b><span>también de Claude y Gemini · Elio te conoce desde el primer día</span><em>→</em></button>
         <div class="sugerencias">
           <button class="vidrio" data-prompt="Ayúdame a redactar un texto. Primero pregúntame qué necesito: un correo, una publicación para redes, un ensayo o una carta."><span class="ico"><svg><use href="#i-lapiz"/></svg></span><b>Crear contenido</b><small>Redacta, mejora y adapta textos.</small></button>
           <button class="vidrio" data-prompt="Quiero analizar unos datos. Explícame cómo puedo pasártelos (tabla, números o un archivo) y qué conclusiones podrías sacar."><span class="ico"><svg><use href="#i-barras"/></svg></span><b>Analizar datos</b><small>Interpreta información y obtén conclusiones.</small></button>
@@ -271,6 +272,7 @@
     <div class="b-pestanas" role="tablist">
       <button type="button" class="on" data-bpest="docs" role="tab">📄 Documentos</button>
       <button type="button" data-bpest="apr" role="tab">🧠 Aprendizajes</button>
+      <button type="button" data-bpest="hist" role="tab">🔄 Trae tu historial</button>
     </div>
     <div id="b-apr" class="oculto">
       <form id="a-form" class="a-form">
@@ -283,6 +285,23 @@
         <div class="a-fila fin"><span class="nota" id="a-cupo"></span><button class="boton principal" type="submit">Guardar aprendizaje</button></div>
       </form>
       <div id="a-lista" class="b-lista"></div>
+    </div>
+    <div id="b-hist" class="oculto">
+      <p class="nota">Trae lo que ChatGPT, Claude o Gemini saben de ti para que Elio te conozca desde el primer día. Tú revisas y apruebas todo antes de que Elio lo use. <a href="trae-tu-historial.html" target="_blank" rel="noopener">Ver la guía paso a paso ↗</a></p>
+      <div class="h-origen" role="radiogroup" aria-label="¿De qué IA vienes?">
+        <button type="button" class="on" data-origen="chatgpt">ChatGPT</button><button type="button" data-origen="claude">Claude</button><button type="button" data-origen="gemini">Gemini</button><button type="button" data-origen="otro">Otra IA</button>
+      </div>
+      <ol class="h-pasos">
+        <li><b>Copia este texto</b> <button type="button" class="boton" id="h-copiar">Copiar el texto</button>
+          <blockquote id="h-prompt">Resume en viñetas lo que sabes de mí: a qué me dedico, mis proyectos actuales, mis metas, cómo prefiero que me respondas y los temas que más te pregunto. No incluyas contraseñas, datos de tarjetas, documentos de identidad ni datos de salud.</blockquote></li>
+        <li><b>Pégalo en tu otra IA</b> y envíalo: <a id="h-abrir" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">Abrir ChatGPT ↗</a></li>
+        <li><b>Copia su respuesta y pégala aquí:</b>
+          <textarea id="h-texto" rows="5" maxlength="20000" placeholder="Pega aquí la respuesta completa de tu otra IA"></textarea>
+          <div class="a-fila fin"><span class="nota" id="h-cupo">Elio tapa solo las contraseñas, claves y tarjetas que encuentre.</span><button class="boton principal" type="button" id="h-crear">Crear mi memoria</button></div></li>
+      </ol>
+      <p class="nota">¿Quieres traer <b>todas</b> tus conversaciones (archivo ZIP)? <em class="pronto-tag">Muy pronto</em> Ya puedes pedir la descarga a tu otra IA con la <a href="trae-tu-historial.html" target="_blank" rel="noopener">guía</a>.</p>
+      <h3>Lo que Elio aprendió de ti</h3>
+      <div id="h-lista" class="b-lista"></div>
     </div>
     <div id="b-docs">
     <div class="b-barra">
@@ -337,6 +356,6 @@
 
 <div id="toast" role="status"></div>
 <script src="config.js?v=1"></script>
-<script type="module" src="app.js?v=12"></script>
+<script type="module" src="app.js?v=13"></script>
 </body>
 </html>

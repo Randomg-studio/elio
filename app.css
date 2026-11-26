@@ -369,3 +369,20 @@ em.nuevo{background:rgba(0,198,235,.16);color:var(--cian2)!important}
 .a-form select option{background:#0b1830}
 .a-ideas{margin:6px 0 0 18px;padding:0;color:#c3d1e8;font-size:13px}
 .a-pie{margin-top:6px;font-size:12px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+
+/* v13: Trae tu historial */
+.gancho-historial{display:flex;align-items:center;gap:10px;flex-wrap:nowrap;white-space:nowrap;overflow:hidden;margin:-6px auto 22px;max-width:640px;padding:10px 16px;border-radius:999px;border:1px solid rgba(0,198,235,.35);background:linear-gradient(90deg,rgba(0,198,235,.12),rgba(7,86,216,.12));color:var(--texto);font:inherit;font-size:14px;cursor:pointer;justify-content:center;transition:.15s}
+.gancho-historial:hover{border-color:var(--cian);transform:translateY(-1px)}
+.gancho-historial span{color:var(--suave);font-size:12.5px;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.gancho-historial em{font-style:normal;color:var(--cian2)}
+.h-origen{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.h-origen button{background:rgba(255,255,255,.05);border:1px solid var(--linea);border-radius:999px;color:var(--texto);font:inherit;font-size:13px;padding:6px 14px;cursor:pointer}
+.h-origen button.on{border-color:var(--cian);background:rgba(0,198,235,.14)}
+.h-pasos{margin:6px 0 10px 18px;padding:0;display:grid;gap:10px;font-size:14px}
+.h-pasos .boton{width:auto;padding:5px 12px;font-size:12.5px;margin-left:6px}
+.h-pasos blockquote{margin:6px 0 0;padding:8px 12px;border-left:3px solid var(--cian);background:rgba(255,255,255,.04);border-radius:8px;font-size:13px;color:#c3d1e8}
+.h-pasos textarea,.b-doc textarea{width:100%;margin-top:6px;background:rgba(255,255,255,.05);border:1px solid var(--linea);border-radius:12px;color:var(--texto);padding:9px 12px;font:inherit;font-size:13.5px;resize:vertical;box-sizing:border-box}
+.h-estado{font-size:11.5px;padding:2px 8px;border-radius:999px;background:rgba(255,200,0,.14);color:#ffd76a;white-space:nowrap}
+.h-estado.aprobada{background:rgba(43,212,138,.14);color:var(--verde)}
+.pronto-tag{font-style:normal;font-size:11px;padding:1px 8px;border-radius:999px;background:rgba(0,198,235,.14);color:var(--cian2)}
+@media(max-width:900px){.gancho-historial span{display:none}}
