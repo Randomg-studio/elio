@@ -8,7 +8,7 @@ const $$ = (s) => [...document.querySelectorAll(s)];
 const CFG = window.ELIO_CONFIG || {};
 const DEMO = !CFG.SUPABASE_URL && location.hostname === 'localhost' && location.search.includes('demo');
 const VOLVER = location.hostname === 'localhost' ? location.origin + '/' : CFG.SITIO;
-const PRECIOS = { impulso: 29.9, ultra: 79.9 };
+const PRECIOS = { impulso: 56.99, ultra: 159.99 };   // con IGV incluido
 const NOMBRE_PLAN = { libre: 'Libre', impulso: 'Impulso', ultra: 'Ultra' };
 const MOTORES = { chispa: ['⚡ Chispa', 1], pulso: ['💡 Pulso', 2], orbita: ['🪐 Órbita', 10], cumbre: ['🏔️ Cumbre', 25] };
 const MOTORES_PLAN = { invitado: ['chispa'], libre: ['chispa'], impulso: ['chispa', 'pulso', 'orbita'], ultra: ['chispa', 'pulso', 'orbita', 'cumbre'] };
@@ -293,7 +293,7 @@ async function enviar(texto, adjunto) {
   let acumulado = '';
   try {
     if (DEMO) {
-      const resp = `¡Hola! Esto es una **demostración** de Elio.\n\n- Motor: **${E.motor}**\n- Tu mensaje: _${texto.slice(0, 80)}_\n\n| Plan | Precio |\n|---|---|\n| Impulso | S/ 29.90 |\n| Ultra | S/ 79.90 |\n\n\`\`\`js\nconsole.log("Elio by FlexGo");\n\`\`\``;
+      const resp = `¡Hola! Esto es una **demostración** de Elio.\n\n- Motor: **${E.motor}**\n- Tu mensaje: _${texto.slice(0, 80)}_\n\n| Plan | Precio |\n|---|---|\n| Impulso | S/ 56.99 |\n| Ultra | S/ 159.99 |\n\n\`\`\`js\nconsole.log("Elio by FlexGo");\n\`\`\``;
       for (const w of resp.split(/(\s+)/)) { acumulado += w; b.pintar(acumulado); abajo(); await new Promise((r) => setTimeout(r, 18)); }
       b.pintar(acumulado, true);
       if (!E.conv) { E.conv = 'demo-' + Date.now(); E.chats.unshift({ id: E.conv, titulo: texto.slice(0, 60) }); pintarChats(); $('#titulo-chat').textContent = texto.slice(0, 60); }
@@ -970,7 +970,7 @@ async function cargarAdmin() {
   $('#admin').classList.remove('oculto');
   if (!DEMO && !(await pedir2fa())) return;
   $('#admin-2fa').classList.add('oculto');
-  let d = DEMO ? { usuarios: 3, por_plan: { libre: 2, impulso: 1 }, gasto_hoy: { total_usd: 0.12 }, gasto_mes: 1.4, mensajes_hoy: 57, pagos: [{ id: 1, plan: 'impulso', monto: 29.9, operacion: '12345678', estado: 'pendiente', creado: new Date().toISOString(), nombre: 'Ana', email: 'ana@correo.com' }] } : null;
+  let d = DEMO ? { usuarios: 3, por_plan: { libre: 2, impulso: 1 }, gasto_hoy: { total_usd: 0.12 }, gasto_mes: 1.4, mensajes_hoy: 57, pagos: [{ id: 1, plan: 'impulso', monto: 56.99, operacion: '12345678', estado: 'pendiente', creado: new Date().toISOString(), nombre: 'Ana', email: 'ana@correo.com' }] } : null;
   if (!DEMO) { const r = await sb.rpc('elio_admin_resumen'); if (r.error) { $('#admin-resumen').textContent = 'Sin permiso.'; return; } d = r.data; }
   const pp = d.por_plan || {};
   $('#admin-resumen').innerHTML = [
