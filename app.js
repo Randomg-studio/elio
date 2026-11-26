@@ -453,6 +453,160 @@ $$('[data-cerrar]').forEach((b) => b.addEventListener('click', () => b.closest('
 $$('.modal').forEach((m) => m.addEventListener('click', (e) => { if (e.target === m && m.id !== 'nueva-clave') m.classList.add('oculto'); }));
 addEventListener('keydown', (e) => { if (e.key === 'Escape') $$('.modal').forEach((m) => m.id !== 'nueva-clave' && m.classList.add('oculto')); });
 
+// ---------- Trabajos académicos: referencias reales en APA 7, Vancouver e ISO 690 (sin IA) ----------
+const TOPE_REF = { libre: 20, impulso: 300, ultra: 1000 };
+const it = (x) => `<i>${esc(x)}</i>`;
+function autoresDe(txt) {
+  return String(txt || '').split('\n').map((l) => l.trim()).filter(Boolean).map((l) => {
+    const [ap, ...rest] = l.split(',');
+    const nom = rest.join(',').trim();
+    return nom ? { ap: ap.trim(), nom } : { org: ap.trim() };
+  });
+}
+const iniciales = (nom, punto = true) => nom.split(/[\s-]+/).filter(Boolean).map((n) => n[0].toUpperCase() + (punto ? '.' : '')).join(punto ? ' ' : '');
+function autoresAPA(l) {
+  const f = l.map((a) => a.org ? esc(a.org) : `${esc(a.ap)}, ${iniciales(a.nom)}`);
+  if (!f.length) return '';
+  if (f.length === 1) return f[0];
+  if (f.length <= 20) return f.slice(0, -1).join(', ') + ', &amp; ' + f[f.length - 1];
+  return f.slice(0, 19).join(', ') + ', . . . ' + f[f.length - 1];
+}
+function autoresVan(l) {
+  const f = l.map((a) => a.org ? esc(a.org) : `${esc(a.ap)} ${iniciales(a.nom, false)}`);
+  return f.length > 6 ? f.slice(0, 6).join(', ') + ', et al' : f.join(', ');
+}
+function autoresISO(l) {
+  return l.map((a) => a.org ? esc(a.org.toUpperCase()) : `${esc(a.ap.toUpperCase())}, ${esc(a.nom)}`).join('; ');
+}
+const enlace = (u) => { u = String(u || '').trim(); if (!u) return ''; if (/^10\.\d{4,}\//.test(u)) u = 'https://doi.org/' + u; return /^https?:\/\//i.test(u) ? esc(u) : ''; };
+const fin = (x) => x && !/[.?!]$/.test(x) ? x + '.' : x;
+function formatoRef(tipo, d, estilo) {
+  const A = autoresDe(d.autores), anio = esc(d.anio || 's.f.'), T = esc(d.titulo || ''), F = esc(d.fuente || ''), X = esc(d.extra || '');
+  const V = esc(d.vol || ''), N = esc(d.num || ''), P = esc(d.pags || ''), U = enlace(d.url);
+  if (estilo === 'vancouver') {
+    const au = autoresVan(A);
+    if (tipo === 'articulo') return `${au ? au + '. ' : ''}${fin(T)} ${F}. ${anio}${V ? ';' + V : ''}${N ? '(' + N + ')' : ''}${P ? ':' + P : ''}.${U ? ' ' + U : ''}`;
+    if (tipo === 'capitulo') return `${au ? au + '. ' : ''}${fin(T)} En: ${X}. ${F}; ${anio}.${P ? ' p. ' + P + '.' : ''}${U ? ' ' + U : ''}`;
+    if (tipo === 'web') return `${au ? au + '. ' : ''}${T} [Internet]. ${F ? F + '; ' : ''}${anio}. Disponible en: ${U}`;
+    if (tipo === 'tesis') return `${au ? au + '. ' : ''}${T} [${X || 'Tesis'}]. ${F}; ${anio}.${U ? ' Disponible en: ' + U : ''}`;
+    return `${au ? au + '. ' : ''}${fin(T)} ${F}; ${anio}.${U ? ' ' + U : ''}`;
+  }
+  if (estilo === 'iso') {
+    const au = autoresISO(A);
+    if (tipo === 'articulo') return `${au ? au + '. ' : ''}${fin(T)} ${it(d.fuente || '')}. ${anio}${V ? ', vol. ' + V : ''}${N ? ', n.º ' + N : ''}${P ? ', pp. ' + P : ''}.${U ? ' Disponible en: ' + U : ''}`;
+    if (tipo === 'capitulo') return `${au ? au + '. ' : ''}${fin(T)} En: ${it(d.extra || '')}. ${F}, ${anio}${P ? ', pp. ' + P : ''}.${U ? ' Disponible en: ' + U : ''}`;
+    if (tipo === 'web') return `${au ? au + '. ' : ''}${it(d.titulo || '')} [en línea]. ${F ? F + ', ' : ''}${anio}. Disponible en: ${U}`;
+    if (tipo === 'tesis') return `${au ? au + '. ' : ''}${it(d.titulo || '')}. ${X || 'Tesis'}. ${F}, ${anio}.${U ? ' Disponible en: ' + U : ''}`;
+    return `${au ? au + '. ' : ''}${it(d.titulo || '')}. ${F}, ${anio}.${U ? ' Disponible en: ' + U : ''}`;
+  }
+  const au = autoresAPA(A);
+  const quien = au ? (/\.$/.test(au) ? au : au + '.') + ' ' : '';
+  if (tipo === 'articulo') return `${quien}(${anio}). ${fin(T)} ${it(d.fuente || '')}${V ? ', ' + it(d.vol) : ''}${N ? '(' + N + ')' : ''}${P ? ', ' + P : ''}.${U ? ' ' + U : ''}`;
+  if (tipo === 'capitulo') return `${quien}(${anio}). ${fin(T)} En ${it(d.extra || '')}${P ? ' (pp. ' + P + ')' : ''}. ${fin(F)}${U ? ' ' + U : ''}`;
+  if (tipo === 'web') return `${quien}(${anio}). ${it(d.titulo || '')}. ${F ? fin(F) + ' ' : ''}${U}`;
+  if (tipo === 'tesis') return `${quien}(${anio}). ${it(d.titulo || '')} [${X || 'Tesis'}, ${F}].${U ? ' ' + U : ''}`;
+  return `${quien}(${anio}). ${it(d.titulo || '')}. ${fin(F)}${U ? ' ' + U : ''}`;
+}
+const leerForm = () => ({ autores: $('#r-autores').value, anio: $('#r-anio').value.trim(), titulo: $('#r-titulo').value.trim(), fuente: $('#r-fuente').value.trim(), extra: $('#r-extra').value.trim(), vol: $('#r-vol').value.trim(), num: $('#r-num').value.trim(), pags: $('#r-pags').value.trim(), url: $('#r-url').value.trim() });
+const estiloDe = (n) => document.querySelector(`input[name=${n}]:checked`)?.value || 'apa';
+function previa() { const d = leerForm(); $('#r-previa').innerHTML = d.titulo ? formatoRef($('#r-tipo').value, d, estiloDe('r-estilo')) : 'Completa los datos para ver la referencia.'; }
+['#r-form', '.r-vista'].forEach((sel) => $(sel).addEventListener('input', previa));
+$('#r-form').addEventListener('change', previa); $$('input[name=r-estilo]').forEach((r) => r.addEventListener('change', previa));
+$('#m-academico').addEventListener('click', () => {
+  if (!E.sesion) return pedirCuenta('Crea tu cuenta gratis para guardar tus referencias y usar los formatos.');
+  cerrarLateral(); $('#academico').classList.remove('oculto'); contarRefs(); pintarFormatos();
+});
+$$('[data-apest]').forEach((b) => b.addEventListener('click', () => {
+  $$('[data-apest]').forEach((x) => x.classList.toggle('on', x === b));
+  ['citar', 'lista', 'formatos'].forEach((k) => $('#ac-' + k).classList.toggle('oculto', b.dataset.apest !== k));
+  if (b.dataset.apest === 'lista') cargarRefs();
+  if (b.dataset.apest === 'formatos') pintarFormatos();
+}));
+async function contarRefs() { const { count } = await sb.from('referencias').select('id', { count: 'exact', head: true }); $('#r-cupo').textContent = `${count || 0} de ${TOPE_REF[E.estado?.plan] || 20} guardadas`; }
+$('#r-buscar').addEventListener('click', async () => {
+  const doi = $('#r-doi').value.trim().replace(/^https?:\/\/(dx\.)?doi\.org\//i, '');
+  if (!/^10\.\d{4,}\/\S+$/.test(doi)) return toast('Escribe un DOI válido, por ejemplo 10.1016/j.ejor.2020.01.001');
+  const btn = $('#r-buscar'); btn.disabled = true; btn.textContent = 'Buscando…';
+  try {
+    const r = await fetch('https://api.crossref.org/works/' + encodeURIComponent(doi));
+    if (!r.ok) throw new Error('No encontramos ese DOI en Crossref. Revisa que esté bien escrito.');
+    const m = (await r.json()).message || {};
+    const tipo = { 'journal-article': 'articulo', 'book': 'libro', 'monograph': 'libro', 'book-chapter': 'capitulo', 'dissertation': 'tesis' }[m.type] || 'articulo';
+    $('#r-tipo').value = tipo;
+    $('#r-autores').value = (m.author || []).map((a) => a.family ? `${a.family}, ${a.given || ''}`.trim() : (a.name || '')).filter(Boolean).join('\n');
+    $('#r-anio').value = String((m.issued?.['date-parts']?.[0]?.[0]) || (m.published?.['date-parts']?.[0]?.[0]) || '');
+    $('#r-titulo').value = (m.title || [''])[0];
+    $('#r-fuente').value = tipo === 'articulo' ? (m['container-title'] || [''])[0] : (m.publisher || '');
+    $('#r-extra').value = tipo === 'capitulo' ? (m['container-title'] || [''])[0] : '';
+    $('#r-vol').value = m.volume || ''; $('#r-num').value = m.issue || ''; $('#r-pags').value = (m.page || '').replace('-', '–');
+    $('#r-url').value = 'https://doi.org/' + (m.DOI || doi);
+    previa(); toast('Datos encontrados en Crossref ✔ Revísalos antes de guardar.');
+  } catch (err) { toast(err.message || 'No se pudo buscar el DOI. Inténtalo de nuevo.'); } finally { btn.disabled = false; btn.textContent = 'Buscar datos'; }
+});
+$('#r-limpiar').addEventListener('click', () => { $('#r-form').reset(); $('#r-doi').value = ''; previa(); });
+$('#r-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const d = leerForm();
+  if (!d.titulo || (!d.autores.trim() && !d.fuente)) return toast('Escribe al menos el título y el autor (o la organización).');
+  const { error } = await sb.from('referencias').insert({ tipo: $('#r-tipo').value, datos: d });
+  if (error) return toast(/máximo/.test(error.message) ? error.message : 'No se pudo guardar.');
+  toast('Referencia guardada ✔'); $('#r-form').reset(); $('#r-doi').value = ''; previa(); contarRefs();
+});
+let refsCache = [];
+async function cargarRefs() {
+  $('#l-lista').innerHTML = '<p class="nota">Cargando…</p>';
+  const { data } = await sb.from('referencias').select('id,tipo,datos,creado').order('creado');
+  refsCache = data || []; pintarRefs();
+}
+function refsOrdenadas() {
+  const estilo = estiloDe('l-estilo');
+  const l = refsCache.map((r) => ({ id: r.id, html: formatoRef(r.tipo, r.datos, estilo), orden: (r.datos.autores || r.datos.titulo || '').toLowerCase() }));
+  return estilo === 'vancouver' ? l : l.sort((a, b) => a.orden.localeCompare(b.orden, 'es'));
+}
+function pintarRefs() {
+  const estilo = estiloDe('l-estilo'), l = refsOrdenadas();
+  $('#l-lista').innerHTML = l.length ? l.map((r, i) => `<div class="b-doc r-item"><div class="b-doc-cab"><span class="r-texto">${estilo === 'vancouver' ? (i + 1) + '. ' : ''}${r.html}</span><button class="icono b-borrar" data-borrar-ref="${r.id}" title="Borrar" aria-label="Borrar referencia">🗑</button></div></div>`).join('')
+    : '<p class="nota">Aún no guardas referencias. Agrégalas en «Citar una fuente».</p>';
+}
+$$('input[name=l-estilo]').forEach((r) => r.addEventListener('change', pintarRefs));
+$('#l-lista').addEventListener('click', async (e) => {
+  const id = e.target.dataset.borrarRef; if (!id) return;
+  if (!confirm('¿Borrar esta referencia?')) return;
+  const { error } = await sb.from('referencias').delete().eq('id', Number(id));
+  if (error) return toast('No se pudo borrar.');
+  cargarRefs(); contarRefs();
+});
+$('#l-copiar').addEventListener('click', async () => {
+  const estilo = estiloDe('l-estilo'), l = refsOrdenadas(); if (!l.length) return toast('No hay referencias para copiar.');
+  const html = l.map((r, i) => `<p style="padding-left:1.27cm;text-indent:-1.27cm">${estilo === 'vancouver' ? (i + 1) + '. ' : ''}${r.html}</p>`).join('');
+  const tmp = document.createElement('div'); tmp.innerHTML = html; const texto = [...tmp.querySelectorAll('p')].map((p) => p.textContent).join('\n');
+  try { await navigator.clipboard.write([new ClipboardItem({ 'text/html': new Blob([html], { type: 'text/html' }), 'text/plain': new Blob([texto], { type: 'text/plain' }) })]); }
+  catch (err) { await navigator.clipboard.writeText(texto); }
+  toast('Lista copiada ✔ Pégala en Word o Google Docs (conserva las cursivas).');
+});
+// Formatos verificados en guías oficiales (26-nov-2026). Solo lo que dice cada guía; nada inventado.
+const FORMATOS = [
+  { u: 'Formato general APA 7 (trabajo de estudiante)', f: 'Guía oficial de APA Style: «Title page setup» y «Paper format»', url: 'https://apastyle.apa.org/style-grammar-guidelines/paper-format/title-page',
+    partes: ['Carátula: título, nombre del autor, institución (afiliación), curso, docente y fecha de entrega', 'Cuerpo del trabajo (introducción, desarrollo y conclusiones, según lo que pida tu docente)', 'Referencias (en orden alfabético, con sangría francesa)'] },
+  { u: 'USMP · Facultad de Ingeniería y Arquitectura — Informe final de tesis (enfoque cuantitativo)', f: 'Manual para la elaboración de las tesis y los trabajos de investigación (USMP, 2022)', url: 'https://fia.usmp.edu.pe/wp-content/uploads/2026/01/MANUAL-ELABORACION-TESIS.pdf',
+    partes: ['Portada', 'Dedicatoria (optativa)', 'Agradecimientos (optativo)', 'Reporte de similitud', 'Declaración de originalidad', 'Índices: de contenido, y de tablas y figuras (optativo)', 'Resumen – Abstract', 'Introducción', 'Capítulo I: Marco teórico', 'Capítulo: Hipótesis y variables (investigaciones cuantitativas)', 'Capítulo: Metodología de la investigación', 'Capítulo: Resultados', 'Capítulo: Discusión', 'Conclusiones', 'Recomendaciones (solo si proceden)', 'Fuentes de información', 'Anexos (si son necesarios)'] },
+  { u: 'UPAO · Facultad de Medicina Humana — Informe de tesis', f: 'Normas para la inscripción del proyecto de investigación e informe de tesis (UPAO, 2017). Citas en estilo Vancouver', url: 'https://upao.edu.pe/pdf/NORMAS%20PARA%20LA%20INSCRIPCION%20DEL%20PROYECTO%20DE%20INVESTIGACI%C3%93N%20E%20INFORME%20DE%20TESIS.pdf',
+    partes: ['Página del título', 'Resumen', 'Summary o Abstract', 'Introducción', 'Material y métodos', 'Resultados (tablas, gráficos y figuras)', 'Discusión', 'Referencias bibliográficas (Vancouver)', 'Anexos'] },
+  { u: 'UCV — Presentación de productos de investigación en APA 7', f: 'Manual de presentación de productos de investigación alineados a normas APA 7ma edición (UCV, 2023)', url: 'https://hdl.handle.net/20.500.12692/144461',
+    partes: ['Este manual regula el formato APA 7: disposición general, tablas y figuras, citas y referencias', 'La estructura de capítulos de tu tesis la define la guía de tu escuela: consúltala con tu asesor'] },
+  { u: 'UNSM (Tarapoto)', f: 'En verificación: aún no pudimos revisar la guía oficial vigente', url: '', pronto: true, partes: [] },
+];
+function pintarFormatos() {
+  $('#f-lista').innerHTML = FORMATOS.map((f, i) => `<div class="b-doc"><div class="b-doc-cab"><b>🏛️ ${esc(f.u)}</b>${f.pronto ? '<em class="pronto-tag">Muy pronto</em>' : `<button class="boton" type="button" data-copiar-formato="${i}">Copiar esquema</button>`}</div>
+    <p class="nota">Fuente: ${f.url ? `<a href="${esc(f.url)}" target="_blank" rel="noopener noreferrer">${esc(f.f)} ↗</a>` : esc(f.f)}</p>
+    ${f.partes.length ? `<ol class="f-partes">${f.partes.map((p) => `<li>${esc(p)}</li>`).join('')}</ol>` : ''}</div>`).join('');
+}
+$('#f-lista').addEventListener('click', (e) => {
+  const i = e.target.dataset.copiarFormato; if (i === undefined) return;
+  const f = FORMATOS[Number(i)];
+  navigator.clipboard.writeText(`${f.u}\nFuente: ${f.f}${f.url ? ' — ' + f.url : ''}\n\n` + f.partes.map((p, n) => `${n + 1}. ${p}`).join('\n')).then(() => toast('Esquema copiado ✔'));
+});
+
 // ---------- Mi día ----------
 const fechaBonita = (f) => new Date(f + 'T12:00').toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long', ...(f.slice(0, 4) !== String(new Date().getFullYear()) ? { year: 'numeric' } : {}) });
 $('#m-herramientas').addEventListener('click', () => {
