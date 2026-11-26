@@ -354,3 +354,18 @@ em.nuevo{background:rgba(0,198,235,.16);color:var(--cian2)!important}
 .md-tarea .icono{width:26px;height:26px;font-size:12px;opacity:.6}
 .md-tarea .icono:hover{opacity:1}
 .md-venc{font-size:13.5px;padding:6px 10px;border-radius:10px;background:rgba(0,198,235,.07);margin-bottom:6px}
+
+/* v12: Biblioteca de vida */
+.b-pestanas{display:flex;gap:6px;margin:4px 0 10px;border-bottom:1px solid var(--linea)}
+.b-pestanas button{background:none;border:0;color:var(--suave);font:inherit;font-size:14px;padding:8px 12px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+.b-pestanas button.on{color:var(--texto);border-bottom-color:var(--cian)}
+.a-form{display:grid;gap:8px;margin-bottom:10px}
+.a-fila{display:flex;gap:8px;align-items:center}
+.a-fila.fin{justify-content:space-between}
+.a-fila .boton{width:auto;padding:8px 16px}
+.a-form select,.a-form input,.a-form textarea{background:rgba(255,255,255,.05);border:1px solid var(--linea);border-radius:12px;color:var(--texto);padding:9px 12px;font:inherit;font-size:14px;min-width:0}
+.a-form select{flex:none}.a-form .a-fila input{flex:1}
+.a-form textarea{resize:vertical;min-height:84px}
+.a-form select option{background:#0b1830}
+.a-ideas{margin:6px 0 0 18px;padding:0;color:#c3d1e8;font-size:13px}
+.a-pie{margin-top:6px;font-size:12px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
