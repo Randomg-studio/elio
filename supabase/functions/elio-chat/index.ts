@@ -349,7 +349,7 @@ Deno.serve(async (req) => {
         ? `Este mensaje necesita unos ${creditosEstimados} créditos (la conversación o el documento son largos) y no te alcanzan en estas 5 horas. Abre un chat nuevo o usa Chispa, que gasta menos. Se renuevan el ${hora(cuando)}.`
         : `Usaste los créditos de estas 5 horas. Se renuevan el ${hora(cuando)}.${motor !== "chispa" ? " Puedes seguir con Chispa, que gasta menos." : ""}`)
       : tipoErr.includes("SEMANA") ? `Usaste los créditos de esta semana. Se renuevan el ${hora(cuando)}.` : "No pude revisar tus créditos. Inténtalo de nuevo.";
-    return json(c, tipoErr.includes("MOTOR") ? 403 : 429, { mensaje: msg, codigo: "cupo", mejora: plan === "libre" });
+    return json(c, tipoErr.includes("MOTOR") ? 403 : 429, { mensaje: msg.replace(/\.\.(\s|$)/g, ".$1"), codigo: "cupo", mejora: plan === "libre" });
   }
   await admin.rpc("elio_sumar_uso", { u: user.id, nivel, costo: 0, es_libre: plan === "libre" }); // estadística antigua (mensajes por día)
 
