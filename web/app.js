@@ -263,7 +263,7 @@ async function enviar(texto, adjunto) {
     burbujaYo(texto); const b = burbujaElio(); abajo();
     try {
       const j = await llamarBiblioteca({ accion: 'tarea', texto });
-      b.pintar(`Listo ✔ Lo anoté en **Mi día**: **${j.tarea.texto}**${j.tarea.fecha ? ` para el **${fechaBonita(j.tarea.fecha)}**` : ''}${j.tarea.hora ? ` a las ${j.tarea.hora.slice(0, 5)}` : ''}.\n\nPuedes verlo en el menú *Mi día*.`, true);
+      b.pintar(`Listo ✔ Lo anoté en **Mi día**: **${j.tarea.texto}**${j.tarea.fecha ? ` para el **${fechaBonita(j.tarea.fecha)}**` : ''}${j.tarea.hora ? ` a las ${j.tarea.hora.slice(0, 5)}` : ''}${j.tarea.monto ? ` (${j.tarea.moneda === 'USD' ? 'US$' : 'S/'} ${j.tarea.monto})` : ''}.${j.consola === 'enviado' ? '\n\nTambién quedó en tu **Consola madre** ✔' : j.consola === 'pendiente' ? '\n\nLa Consola madre no respondió; lo vuelvo a enviar en tu próximo recordatorio.' : j.consola === 'sensible' ? '\n\nNo lo copié a la Consola porque parece traer datos sensibles.' : ''}\n\nPuedes verlo en el menú *Mi día*.`, true);
     } catch (err) { b.pintar(err.message, true); }
     finally { E.enviando = false; abajo(); }
     return;
