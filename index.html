@@ -10,7 +10,7 @@
 <link rel="apple-touch-icon" href="img/Elio_Icono-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="app.css?v=10">
+<link rel="stylesheet" href="app.css?v=11">
 </head>
 <body>
 <!-- Iconos (SVG reutilizables) -->
@@ -112,7 +112,7 @@
     <button class="boton nuevo" id="nuevo-chat"><svg><use href="#i-lapiz"/></svg><span>Nuevo chat</span><kbd>⌘ K</kbd></button>
     <nav class="menu" aria-label="Secciones">
       <button class="on" id="m-inicio"><svg><use href="#i-casa"/></svg>Inicio</button>
-      <button data-pronto="Herramientas"><svg><use href="#i-cuadros"/></svg>Herramientas<em>Pronto</em></button>
+      <button id="m-herramientas"><svg><use href="#i-cuadros"/></svg>Mi día<em class="nuevo">Nuevo</em></button>
       <button id="m-biblioteca"><svg><use href="#i-capas"/></svg>Biblioteca<em class="nuevo">Nuevo</em></button>
       <button data-pronto="Mis proyectos"><svg><use href="#i-carpeta"/></svg>Mis proyectos<em>Pronto</em></button>
     </nav>
@@ -241,6 +241,22 @@
   </form>
 </div>
 
+<!-- Mi día (tareas y recordatorios) -->
+<div id="midia" class="modal oculto" role="dialog" aria-modal="true" aria-labelledby="midia-t">
+  <div class="modal-caja ancha vidrio">
+    <button class="icono cerrar" data-cerrar aria-label="Cerrar">✕</button>
+    <h2 id="midia-t">Mi día</h2>
+    <p class="nota">Escribe como hablas: «pagar la luz el viernes», «llamar a Juan mañana a las 4». También puedes decírselo a Elio en el chat empezando con «Recuérdame…».</p>
+    <form id="md-form" class="b-pregunta">
+      <input id="md-texto" maxlength="300" placeholder="Ej.: pagar la luz el viernes" aria-label="Nueva tarea" autocomplete="off">
+      <button class="boton principal" type="submit">Agregar</button>
+    </form>
+    <label class="interruptor" id="md-correo-caja"><input type="checkbox" id="md-correo"><span><b>Resumen cada mañana a las 7:00 por correo</b><small id="md-correo-nota">Tus tareas del día y los vencimientos de tu Biblioteca. Solo llega si ese día hay algo.</small></span></label>
+    <div class="nota" id="md-cupo"></div>
+    <div id="md-lista" class="md-lista"></div>
+  </div>
+</div>
+
 <!-- Biblioteca (segundo cerebro) -->
 <div id="biblioteca" class="modal oculto" role="dialog" aria-modal="true" aria-labelledby="biblioteca-t">
   <div class="modal-caja ancha vidrio">
@@ -303,6 +319,6 @@
 
 <div id="toast" role="status"></div>
 <script src="config.js?v=1"></script>
-<script type="module" src="app.js?v=8"></script>
+<script type="module" src="app.js?v=9"></script>
 </body>
 </html>

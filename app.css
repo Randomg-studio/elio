@@ -341,3 +341,16 @@ em.nuevo{background:rgba(0,198,235,.16);color:var(--cian2)!important}
 .b-borrar{width:28px;height:28px;font-size:13px}
 .b-venc{display:flex;gap:8px;align-items:flex-start;margin-top:8px;font-size:13px;cursor:pointer;background:rgba(0,198,235,.07);border-radius:10px;padding:6px 8px}
 .b-venc input{margin-top:2px;accent-color:var(--cian);flex:none}
+
+/* v11: Mi día */
+.md-lista{max-height:48vh;overflow:auto;margin-top:6px}
+.md-lista h3{font-size:13px;color:var(--suave);text-transform:uppercase;letter-spacing:.04em;margin:14px 0 6px}
+.md-lista h3.atrasada{color:var(--rojo)}
+.md-tarea{display:flex;gap:10px;align-items:center;padding:8px 10px;border:1px solid var(--linea);border-radius:12px;margin-bottom:6px;background:rgba(255,255,255,.03);font-size:14px;cursor:pointer}
+.md-tarea input{width:18px;height:18px;accent-color:var(--cian);flex:none}
+.md-tarea span{flex:1;min-width:0}
+.md-tarea small{color:var(--suave);font-size:12px;margin-left:6px}
+.md-tarea.hecha span{text-decoration:line-through;color:var(--suave)}
+.md-tarea .icono{width:26px;height:26px;font-size:12px;opacity:.6}
+.md-tarea .icono:hover{opacity:1}
+.md-venc{font-size:13.5px;padding:6px 10px;border-radius:10px;background:rgba(0,198,235,.07);margin-bottom:6px}
