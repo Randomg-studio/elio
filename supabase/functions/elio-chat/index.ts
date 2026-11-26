@@ -1,4 +1,4 @@
-// ELIO by FlexGo Group · Función del servidor «elio-chat» (Supabase Edge Function, Deno) · v6 (Gemini solo con nivel de pago; si no, Claude Haiku)
+// ELIO by FlexGo Group · Función del servidor «elio-chat» (Supabase Edge Function, Deno) · v7 (motores Chispa, Pulso, Órbita y Cumbre con créditos por ventana; Gemini solo con nivel de pago)
 // - Invitados (sin cuenta): 4 preguntas al día, luego se les pide crear su cuenta gratis.
 // - Plan Libre e invitados: Claude Haiku (Gemini solo si GEMINI_NIVEL=pago, con Claude de respaldo).
 // - Planes Impulso y Ultra: Claude (Haiku 5.5 rápido/razonamiento, Sonnet 5.5 experto).
@@ -9,21 +9,24 @@
 import Anthropic from "npm:@anthropic-ai/sdk";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-type Nivel = "rapido" | "razonamiento" | "experto";
+type Motor = "chispa" | "pulso" | "orbita" | "cumbre";
+type Nivel = "rapido" | "razonamiento" | "experto";   // columnas antiguas de estadísticas (uso, mensajes)
 type Plan = "libre" | "impulso" | "ultra";
 
-const CUPOS: Record<Plan, { rapidoDia: number; razonamientoMes: number | null; expertoMes: number | null; adjuntos: boolean }> = {
-  libre: { rapidoDia: 20, razonamientoMes: null, expertoMes: null, adjuntos: false },
-  impulso: { rapidoDia: 100, razonamientoMes: 300, expertoMes: null, adjuntos: true },
-  ultra: { rapidoDia: 150, razonamientoMes: 800, expertoMes: 200, adjuntos: true },
-};
+// Los límites (créditos cada 5 h y por semana, y qué motores tiene cada plan) viven en la base de datos: elio_limites / elio_reservar.
+const ADJUNTOS: Record<Plan, boolean> = { libre: false, impulso: true, ultra: true };
+const NIVEL_DE: Record<Motor, Nivel> = { chispa: "rapido", pulso: "razonamiento", orbita: "experto", cumbre: "experto" };
+const NOMBRE_MOTOR: Record<Motor, string> = { chispa: "Chispa", pulso: "Pulso", orbita: "Órbita", cumbre: "Cumbre" };
+const MOTOR_DE_NIVEL: Record<string, Motor> = { rapido: "chispa", razonamiento: "pulso", experto: "orbita" };
 const INVITADO_MAX = 4;
 const INVITADO_IP_MAX = 10; // por conexión, aunque cambien de navegador (oficinas y casas comparten IP)
 
-const MODELOS: Record<Nivel, { model: string; effort: "low" | "medium" | "high"; maxTokens: number; pin: number; pout: number }> = {
-  rapido: { model: "claude-haiku-5-5", effort: "low", maxTokens: 4000, pin: 0.1, pout: 0.5 },
-  razonamiento: { model: "claude-haiku-5-5", effort: "high", maxTokens: 12000, pin: 0.1, pout: 0.5 },
-  experto: { model: "claude-sonnet-5-5", effort: "medium", maxTokens: 16000, pin: 2, pout: 10 },
+// Motores de Elio (créditos por mensaje: Chispa 1 · Pulso 2 · Órbita 10 · Cumbre 25)
+const MODELOS: Record<Motor, { model: string; effort: "low" | "medium" | "high"; maxTokens: number; pin: number; pout: number; creditos: number }> = {
+  chispa: { model: "claude-haiku-5-5", effort: "low", maxTokens: 4000, pin: 0.1, pout: 0.5, creditos: 1 },
+  pulso: { model: "claude-haiku-5-5", effort: "high", maxTokens: 12000, pin: 0.1, pout: 0.5, creditos: 2 },
+  orbita: { model: "claude-sonnet-5-5", effort: "medium", maxTokens: 16000, pin: 2, pout: 10, creditos: 10 },
+  cumbre: { model: "claude-opus-5-5", effort: "medium", maxTokens: 16000, pin: 4, pout: 20, creditos: 25 },
 };
 // Gemini solo se usa si el proyecto de Google tiene FACTURACIÓN (nivel de pago) y se marca GEMINI_NIVEL=pago.
 // En el nivel gratis Google usa el contenido para mejorar sus productos: por privacidad, sin esa marca todo va con Claude Haiku.
@@ -174,8 +177,8 @@ async function conGemini(mensajes: Msg[], sistema: string, alTexto: (t: string) 
 }
 
 // Claude en streaming. Devuelve el costo y el motivo de parada.
-async function conClaude(nivel: Nivel, mensajes: Msg[], extra: string, alTexto: (t: string) => void) {
-  const M = MODELOS[nivel];
+async function conClaude(motor: Motor, mensajes: Msg[], extra: string, alTexto: (t: string) => void) {
+  const M = MODELOS[motor];
   const s = anthropic.messages.stream({
     model: M.model,
     max_tokens: M.maxTokens,
@@ -200,7 +203,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: c });
   if (req.method !== "POST") return json(c, 405, { mensaje: "Método no permitido" });
 
-  let cuerpo: { conversacion?: string; texto?: string; nivel?: Nivel; invitado?: boolean; historial?: { rol: string; contenido: string }[]; adjunto?: { tipo: string; nombre: string; datos: string } };
+  let cuerpo: { conversacion?: string; texto?: string; nivel?: string; motor?: string; invitado?: boolean; historial?: { rol: string; contenido: string }[]; adjunto?: { tipo: string; nombre: string; datos: string } };
   try { cuerpo = await req.json(); } catch { return json(c, 400, { mensaje: "Pedido inválido." }); }
   const texto = String(cuerpo.texto ?? "").trim();
   if (!texto && !cuerpo.adjunto) return json(c, 400, { mensaje: "Escribe un mensaje." });
@@ -232,7 +235,7 @@ Deno.serve(async (req) => {
       ? [Number((await admin.rpc("elio_invitado_sumar", { h: huella })).data ?? INVITADO_MAX + 1), Number((await admin.rpc("elio_invitado_sumar", { h: huellaIp })).data ?? INVITADO_IP_MAX + 1)]
       : [INVITADO_MAX + 1, INVITADO_IP_MAX + 1];
     if (reserva[0] > INVITADO_MAX || reserva[1] > INVITADO_IP_MAX)
-      return json(c, 429, { mensaje: `Ya usaste tus ${INVITADO_MAX} preguntas sin cuenta. Crea tu cuenta gratis para seguir: tienes 20 mensajes al día y tu historial guardado.`, codigo: "registro" });
+      return json(c, 429, { mensaje: `Ya usaste tus ${INVITADO_MAX} preguntas sin cuenta. Crea tu cuenta gratis para seguir: tienes 20 créditos cada 5 horas y tu historial guardado.`, codigo: "registro" });
     const hist: Msg[] = (Array.isArray(cuerpo.historial) ? cuerpo.historial : []).slice(-6)
       .filter((m) => (m.rol === "user" || m.rol === "assistant") && typeof m.contenido === "string")
       .map((m) => ({ role: m.rol as "user" | "assistant", content: m.contenido.slice(0, 3000) }));
@@ -247,8 +250,9 @@ Deno.serve(async (req) => {
         try {
           let costo = 0;
           try { if (!GEMINI_KEY) throw new Error("sin clave"); costo = await conGemini(mensajes, SISTEMA + "\n" + extra, alTexto); }
-          catch (e) { if (respuesta) throw e; console.warn("respaldo Claude:", String(e)); costo = (await conClaude("rapido", mensajes, extra, alTexto)).costo; }
+          catch (e) { if (respuesta) throw e; console.warn("respaldo Claude:", String(e)); costo = (await conClaude("chispa", mensajes, extra, alTexto)).costo; }
           await admin.rpc("elio_sumar_gasto", { costo, es_libre: true });
+          await admin.rpc("elio_anotar_consumo", { u: null, m: "chispa", f: "invitado", costo });
           enviar({ tipo: "invitado", restantes: Math.max(0, INVITADO_MAX - reserva[0]) });
           enviar({ tipo: "fin" });
         } catch (e) {
@@ -261,23 +265,14 @@ Deno.serve(async (req) => {
   }
 
   // ---------- Usuario con cuenta ----------
-  const nivel: Nivel = (["rapido", "razonamiento", "experto"] as const).includes(cuerpo.nivel as Nivel) ? cuerpo.nivel as Nivel : "rapido";
+  const motor: Motor = (["chispa", "pulso", "orbita", "cumbre"] as const).includes(cuerpo.motor as Motor) ? cuerpo.motor as Motor
+    : MOTOR_DE_NIVEL[String(cuerpo.nivel)] ?? "chispa";
+  const nivel: Nivel = NIVEL_DE[motor];
   const { data: planDb } = await admin.rpc("elio_plan", { u: user.id });
   const plan: Plan = (planDb as Plan) ?? "libre";
-  const P = CUPOS[plan] ?? CUPOS.libre;
-  const mes = hoy.slice(0, 8) + "01";
-  const { data: usos } = await admin.from("uso").select("dia,rapido,razonamiento,experto").eq("usuario", user.id).gte("dia", mes);
-  const usoHoy = usos?.find((u) => u.dia === hoy) ?? { rapido: 0, razonamiento: 0, experto: 0 };
-  const usoMes = (usos ?? []).reduce((a, u) => ({ razonamiento: a.razonamiento + u.razonamiento, experto: a.experto + u.experto }), { razonamiento: 0, experto: 0 });
   const nombrePlan = { libre: "Libre", impulso: "Impulso", ultra: "Ultra" }[plan];
-
-  if (nivel === "rapido" && usoHoy.rapido >= P.rapidoDia)
-    return json(c, 429, { mensaje: `Usaste tus ${P.rapidoDia} mensajes de hoy del plan ${nombrePlan}. Vuelven mañana${plan === "ultra" ? "." : ", o sube de plan para tener más."}`, codigo: "cupo" });
-  if (nivel === "razonamiento" && (P.razonamientoMes === null || usoMes.razonamiento >= P.razonamientoMes))
-    return json(c, 429, { mensaje: P.razonamientoMes === null ? "El modo Razonamiento está en los planes Impulso y Ultra." : `Usaste tus ${P.razonamientoMes} mensajes de Razonamiento de este mes.`, codigo: "cupo" });
-  if (nivel === "experto" && (P.expertoMes === null || usoMes.experto >= P.expertoMes))
-    return json(c, 429, { mensaje: P.expertoMes === null ? "El modo Experto está en el plan Ultra." : `Usaste tus ${P.expertoMes} mensajes Expertos de este mes.`, codigo: "cupo" });
-  if (cuerpo.adjunto && !P.adjuntos)
+  const hora = (t: string | null) => t ? new Date(t).toLocaleString("es-PE", { timeZone: "America/Lima", weekday: "long", hour: "2-digit", minute: "2-digit" }) : "pronto";
+  if (cuerpo.adjunto && !ADJUNTOS[plan])
     return json(c, 403, { mensaje: "Subir archivos e imágenes está en los planes Impulso y Ultra.", codigo: "cupo" });
   if (plan === "libre" && gasto && Number(gasto.libre_usd) >= TOPE_LIBRE)
     return json(c, 503, { mensaje: "Los mensajes gratis de hoy se agotaron para todos. Vuelve mañana o pásate a Impulso.", codigo: "tope_libre" });
@@ -292,8 +287,18 @@ Deno.serve(async (req) => {
       : { type: "image", source: { type: "base64", media_type: tipo as "image/png", data: datos } };
   }
 
-  // Se reserva el mensaje ANTES de responder (el costo se suma al final): así, varios mensajes a la vez no se saltan el cupo.
-  await admin.rpc("elio_sumar_uso", { u: user.id, nivel, costo: 0, es_libre: plan === "libre" });
+  // Se reservan los créditos ANTES de responder (atómico): así, varios mensajes a la vez no se saltan la ventana ni la semana.
+  const { data: consumoId, error: errReserva } = await admin.rpc("elio_reservar", { u: user.id, m: motor, cr: MODELOS[motor].creditos });
+  if (errReserva) {
+    const [tipoErr, cuando] = String(errReserva.message).split("|");
+    const msg = tipoErr.includes("MOTOR")
+      ? `${NOMBRE_MOTOR[motor]} no está en tu plan ${nombrePlan}. ${motor === "cumbre" ? "Cumbre está en Ultra." : "Pásate a Impulso o Ultra."}`
+      : tipoErr.includes("VENTANA")
+      ? `Usaste los créditos de estas 5 horas. Se renuevan el ${hora(cuando)}.${motor !== "chispa" ? " Puedes seguir con Chispa, que gasta menos." : ""}`
+      : tipoErr.includes("SEMANA") ? `Usaste los créditos de esta semana. Se renuevan el ${hora(cuando)}.` : "No pude revisar tus créditos. Inténtalo de nuevo.";
+    return json(c, tipoErr.includes("MOTOR") ? 403 : 429, { mensaje: msg, codigo: "cupo" });
+  }
+  await admin.rpc("elio_sumar_uso", { u: user.id, nivel, costo: 0, es_libre: plan === "libre" }); // estadística antigua (mensajes por día)
 
   let convId = cuerpo.conversacion;
   if (convId) {
@@ -332,9 +337,9 @@ Deno.serve(async (req) => {
         let costo = 0, parada: string | null = null;
         if (plan === "libre" && GEMINI_KEY && !bloqueAdjunto) {
           try { costo = await conGemini(mensajes, SISTEMA + "\n" + extra, alTexto); }
-          catch (e) { if (respuesta) throw e; console.warn("respaldo Claude:", String(e)); ({ costo, parada } = await conClaude(nivel, mensajes, extra, alTexto)); }
+          catch (e) { if (respuesta) throw e; console.warn("respaldo Claude:", String(e)); ({ costo, parada } = await conClaude(motor, mensajes, extra, alTexto)); }
         } else {
-          ({ costo, parada } = await conClaude(nivel, mensajes, extra, alTexto));
+          ({ costo, parada } = await conClaude(motor, mensajes, extra, alTexto));
         }
         if (parada === "refusal" && !respuesta) alTexto("Prefiero no ayudar con eso. ¿Te ayudo con otra cosa?");
         if (parada === "max_tokens") enviar({ tipo: "aviso", t: "La respuesta llegó al límite de largo. Escribe «continúa» para seguir." });
@@ -344,6 +349,9 @@ Deno.serve(async (req) => {
         ]);
         await admin.from("conversaciones").update({ actualizado: new Date().toISOString() }).eq("id", convId);
         await admin.rpc("elio_sumar_uso", { u: user.id, nivel: "costo", costo, es_libre: plan === "libre" }); // solo suma el costo
+        await admin.rpc("elio_cerrar_consumo", { c: consumoId, costo, devolver: !respuesta });
+        const { data: cred } = await admin.rpc("elio_creditos", { u: user.id });
+        enviar({ tipo: "creditos", estado: cred });
         enviar({ tipo: "fin" });
         if (aprende && respuesta) {
           // Solo con el permiso de la persona: qué servicio se le recomendó y etiquetas cortas de su interés.
@@ -356,6 +364,7 @@ Deno.serve(async (req) => {
         }
       } catch (e) {
         console.error("elio-chat", e instanceof Anthropic.APIError ? `${e.status} ${e.message}` : e);
+        if (!respuesta) await admin.rpc("elio_cerrar_consumo", { c: consumoId, costo: 0, devolver: true }); // si no hubo respuesta, se devuelven los créditos
         const msg = e instanceof Anthropic.RateLimitError ? "Hay mucha demanda. Espera unos segundos e inténtalo de nuevo."
           : e instanceof Anthropic.AuthenticationError ? "Elio está en mantenimiento. Inténtalo en un rato."
           : "No pude responder esta vez. Inténtalo de nuevo.";
