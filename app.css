@@ -306,3 +306,18 @@ body.es-invitado .solo-cuenta{display:none}
 .marca h1{font-size:clamp(26px,2.8vw,38px);margin:28px 0 12px}
 .marca p{font-size:clamp(15px,1.3vw,18px)}
 @media (max-width:860px){#lateral{width:84vw;max-width:300px}.caja-mensaje{width:calc(100% - 16px)}#vacio{margin-top:4vh}}
+
+/* v9: permisos opcionales, Privacidad y mis datos, intereses en el panel */
+.terminos.opcional{font-size:12px;color:var(--suave);margin-top:-4px}
+.interruptor{display:flex;gap:12px;align-items:flex-start;padding:12px;border:1px solid var(--linea);border-radius:14px;margin:10px 0;cursor:pointer;background:rgba(255,255,255,.03)}
+.interruptor input{width:20px;height:20px;margin-top:2px;flex:none;accent-color:var(--cian)}
+.interruptor b{display:block;font-size:14.5px}.interruptor small{display:block;color:var(--suave);font-size:12.5px;margin-top:2px;line-height:1.4}
+.p-lista{max-height:240px;overflow:auto;border:1px solid var(--linea);border-radius:14px;padding:6px 12px;margin:8px 0 12px}
+.p-item{padding:8px 0;border-bottom:1px solid var(--linea);font-size:13.5px}.p-item:last-child{border-bottom:0}
+.p-item small{display:block;color:var(--suave);font-size:11.5px}
+.p-serv{display:inline-block;font-size:11px;padding:1px 8px;border-radius:99px;background:rgba(0,180,255,.14);color:#9fdcff;margin-left:4px}
+.p-acciones{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}.p-acciones .boton{width:auto;padding:8px 14px;font-size:13px}
+.tabla-int{border:1px solid var(--linea);border-radius:12px;overflow:hidden;margin:8px 0 14px;font-size:13.5px}
+.tabla-int .fila{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:6px;padding:8px 12px;border-bottom:1px solid var(--linea)}
+.tabla-int .fila:last-child{border-bottom:0}.tabla-int .cab{color:var(--suave);font-size:12px}
+#admin-intereses h4{margin:12px 0 4px;font-size:14px}
