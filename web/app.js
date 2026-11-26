@@ -561,8 +561,58 @@ $$('[data-bpest]').forEach((b) => b.addEventListener('click', () => {
   $$('[data-bpest]').forEach((x) => x.classList.toggle('on', x === b));
   $('#b-docs').classList.toggle('oculto', b.dataset.bpest !== 'docs');
   $('#b-apr').classList.toggle('oculto', b.dataset.bpest !== 'apr');
+  $('#b-hist').classList.toggle('oculto', b.dataset.bpest !== 'hist');
   if (b.dataset.bpest === 'apr') cargarAprendizajes();
+  if (b.dataset.bpest === 'hist') cargarMemorias();
 }));
+
+// ---------- Trae tu historial (fase 1: prompt rápido + memoria aprobada) ----------
+const IA = { chatgpt: ['ChatGPT', 'https://chatgpt.com/'], claude: ['Claude', 'https://claude.ai/'], gemini: ['Gemini', 'https://gemini.google.com/'], otro: ['tu otra IA', ''] };
+let origenMem = 'chatgpt';
+$$('[data-origen]').forEach((b) => b.addEventListener('click', () => {
+  origenMem = b.dataset.origen; $$('[data-origen]').forEach((x) => x.classList.toggle('on', x === b));
+  const [nombre, url] = IA[origenMem];
+  $('#h-abrir').textContent = url ? `Abrir ${nombre} ↗` : '';
+  if (url) $('#h-abrir').href = url;
+}));
+$('#h-copiar').addEventListener('click', () => navigator.clipboard.writeText($('#h-prompt').textContent).then(() => toast('Texto copiado ✔ Pégalo en tu otra IA')));
+$('#gancho-historial').addEventListener('click', () => {
+  if (!E.sesion) { location.href = 'trae-tu-historial.html'; return; }
+  abrirBiblioteca(); $('[data-bpest=hist]').click();
+});
+async function cargarMemorias() {
+  $('#h-lista').innerHTML = '<p class="nota">Cargando…</p>';
+  const { data } = await sb.from('memorias').select('id,origen,resumen,estado,ocultos,creado').order('creado', { ascending: false });
+  const l = data || [];
+  $('#h-lista').innerHTML = l.length ? l.map((m) => `<div class="b-doc" data-mem="${m.id}">
+      <div class="b-doc-cab"><b>Desde ${esc(IA[m.origen]?.[0] || 'otra IA')}</b><span class="h-estado ${m.estado}">${m.estado === 'aprobada' ? '✔ Elio la usa' : 'Borrador: revísala'}</span><button class="icono b-borrar" data-borrar-mem="${m.id}" title="Borrar" aria-label="Borrar memoria">🗑</button></div>
+      ${m.ocultos ? `<p class="nota">Tapamos ${m.ocultos} dato(s) sensible(s) por tu seguridad.</p>` : ''}
+      <textarea rows="6" maxlength="3000">${esc(m.resumen)}</textarea>
+      <div class="a-fila fin"><small class="nota">Puedes corregir o quitar lo que quieras.</small><span>${m.estado === 'aprobada' ? '<button class="boton" data-mem-acc="borrador">Dejar de usar</button> <button class="boton principal" data-mem-acc="aprobar">Guardar cambios</button>' : '<button class="boton principal" data-mem-acc="aprobar">Aprobar y usar</button>'}</span></div>
+    </div>`).join('') : '<p class="nota">Aún no traes ninguna memoria. Sigue los 3 pasos de arriba.</p>';
+}
+$('#h-crear').addEventListener('click', async (e) => {
+  const texto = $('#h-texto').value.trim(); if (texto.length < 40) return toast('Pega la respuesta completa de tu otra IA.');
+  const btn = e.currentTarget; btn.disabled = true; const txt = btn.textContent; btn.textContent = 'Elio está ordenando…';
+  try {
+    await llamarBiblioteca({ accion: 'memoria', origen: origenMem, texto });
+    $('#h-texto').value = ''; toast('Listo ✔ Revisa tu memoria y apruébala para que Elio la use.'); cargarMemorias();
+  } catch (err) { toast(err.message); } finally { btn.disabled = false; btn.textContent = txt; }
+});
+$('#h-lista').addEventListener('click', async (e) => {
+  const borrar = e.target.dataset.borrarMem;
+  if (borrar) {
+    if (!confirm('¿Borrar esta memoria? Elio dejará de usarla.')) return;
+    const { error } = await sb.from('memorias').delete().eq('id', Number(borrar));
+    if (error) return toast('No se pudo borrar.');
+    toast('Memoria borrada ✔'); return cargarMemorias();
+  }
+  const acc = e.target.dataset.memAcc; if (!acc) return;
+  const caja = e.target.closest('[data-mem]');
+  const { error } = await sb.rpc('elio_memoria_aprobar', { m: Number(caja.dataset.mem), texto: caja.querySelector('textarea').value, aprobar: acc === 'aprobar' });
+  if (error) return toast(error.message);
+  toast(acc === 'aprobar' ? 'Aprobada ✔ Elio ya te conoce mejor.' : 'Elio dejó de usar esta memoria.'); cargarMemorias();
+});
 async function cargarAprendizajes() {
   $('#a-lista').innerHTML = '<p class="nota">Cargando…</p>';
   const { data } = await sb.from('aprendizajes').select('id,tipo,titulo,enlace,resumen,ideas,etiquetas,creado').order('creado', { ascending: false }).limit(300);
