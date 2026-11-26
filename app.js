@@ -10,12 +10,8 @@ const DEMO = !CFG.SUPABASE_URL && location.hostname === 'localhost' && location.
 const VOLVER = location.hostname === 'localhost' ? location.origin + '/' : CFG.SITIO;
 const PRECIOS = { impulso: 29.9, ultra: 79.9 };
 const NOMBRE_PLAN = { libre: 'Libre', impulso: 'Impulso', ultra: 'Ultra' };
-const CUPOS = {
-  invitado: { rapido: 4, razonamiento: 0, experto: 0 },
-  libre: { rapido: 20, razonamiento: 0, experto: 0 },
-  impulso: { rapido: 100, razonamiento: 300, experto: 0 },
-  ultra: { rapido: 150, razonamiento: 800, experto: 200 },
-};
+const MOTORES = { chispa: ['⚡ Chispa', 1], pulso: ['💡 Pulso', 2], orbita: ['🪐 Órbita', 10], cumbre: ['🏔️ Cumbre', 25] };
+const MOTORES_PLAN = { invitado: ['chispa'], libre: ['chispa'], impulso: ['chispa', 'pulso', 'orbita'], ultra: ['chispa', 'pulso', 'orbita', 'cumbre'] };
 
 marked.setOptions({ breaks: true, gfm: true });
 // Enlaces de las respuestas: siempre se pueden pulsar, se abren en otra pestaña y solo aceptan http, https o mailto
@@ -38,7 +34,7 @@ const almacen = (() => {
   };
 })();
 const sb = CFG.SUPABASE_URL ? createClient(CFG.SUPABASE_URL, CFG.SUPABASE_KEY, { auth: { storage: almacen } }) : null;
-const E = { invitado: false, historialInv: [], restantes: 4, sesion: null, estado: null, chats: [], conv: null, nivel: 'rapido', adjunto: null, enviando: false };
+const E = { invitado: false, historialInv: [], restantes: 4, sesion: null, estado: null, chats: [], conv: null, motor: 'chispa', cred: null, adjunto: null, enviando: false };
 
 // ---------- Acceso ----------
 let modo = 'entrar';
@@ -47,7 +43,7 @@ function modoAcceso(m) {
   $('#acceso').classList.toggle('registro', m === 'registro');
   $('#acceso').classList.toggle('olvido', m === 'olvido');
   $('#acceso-titulo').textContent = { entrar: 'Bienvenido a Elio', registro: 'Crea tu cuenta gratis', olvido: 'Recupera tu contraseña' }[m];
-  $('#acceso-sub').textContent = { entrar: 'Inicia sesión para continuar', registro: '20 mensajes al día y tu historial guardado', olvido: 'Te enviaremos un enlace a tu correo' }[m];
+  $('#acceso-sub').textContent = { entrar: 'Inicia sesión para continuar', registro: '20 créditos cada 5 horas y tu historial guardado', olvido: 'Te enviaremos un enlace a tu correo' }[m];
   $('#acceso-btn span').textContent = { entrar: 'Iniciar sesión', registro: 'Crear mi cuenta', olvido: 'Enviarme el enlace' }[m];
   $('#cambiar-modo').innerHTML = m === 'entrar'
     ? '<span>¿Aún no tienes una cuenta?</span> <button class="enlace" type="button" data-ir-modo="registro">Crear cuenta</button>'
@@ -147,7 +143,7 @@ function modoInvitado() {
   E.estado = { plan: 'invitado', nombre: '', hoy: { rapido: 0, razonamiento: 0, experto: 0 }, mes: { rapido: 0, razonamiento: 0, experto: 0 } };
   $('#acceso').classList.add('oculto'); $('#app').classList.remove('oculto');
   $('#saludo').textContent = 'Tu asistente de inteligencia artificial para crear, analizar y potenciar tus ideas.';
-  $$('.niveles button').forEach((b) => b.classList.toggle('bloq', b.dataset.nivel !== 'rapido'));
+  $$('.niveles button').forEach((b) => b.classList.toggle('bloq', b.dataset.motor !== 'chispa'));
   E.chats = []; pintarChats(); nuevoChat(); pintarRestantes();
 }
 function pintarRestantes() {
@@ -180,12 +176,13 @@ async function cargarEstado() {
   $('#lat-nombre').textContent = s.nombre || 'Tu cuenta';
   $('#iniciales').textContent = (s.nombre || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((x) => x[0].toUpperCase()).join('') || '?';
   $('#ir-admin').hidden = !s.es_admin;
-  const C = CUPOS[s.plan] || CUPOS.libre;
-  const fila = (t, usado, max, per) => max ? `<div class="cupo">${t}: ${usado} de ${max} ${per}<div class="b"><i style="width:${Math.min(100, (usado / max) * 100)}%"></i></div></div>` : '';
-  $('#cupos').innerHTML = fila('⚡ Rápido', s.hoy.rapido, C.rapido, 'hoy') + fila('🧠 Razonamiento', s.mes.razonamiento, C.razonamiento, 'este mes') + fila('★ Experto', s.mes.experto, C.experto, 'este mes')
-    + (s.pago_pendiente ? '<div>⏳ Tu pago está en revisión.</div>' : '');
+  if (sb && !DEMO) { const { data: cr } = await sb.rpc('elio_mis_creditos'); if (cr) E.cred = cr; }
+  if (DEMO) E.cred = { plan: s.plan, motores: MOTORES_PLAN[s.plan], ventana_max: 60, ventana_usado: 18, ventana_renueva: new Date(Date.now() + 3 * 36e5).toISOString(), semana_max: 340, semana_usado: 120, semana_renueva: new Date(Date.now() + 4 * 864e5).toISOString(), encuesta: false };
+  pintarCreditos();
+  if (s.pago_pendiente) $('#cupos').insertAdjacentHTML('beforeend', '<div>⏳ Tu pago está en revisión.</div>');
   $('#ver-planes').textContent = s.plan === 'ultra' ? 'Ver planes' : '✦ Mejorar mi plan';
-  $$('.niveles button').forEach((b) => b.classList.toggle('bloq', !C[b.dataset.nivel]));
+  const permitidos = E.cred?.motores || MOTORES_PLAN[s.plan] || ['chispa'];
+  $$('.niveles button').forEach((b) => b.classList.toggle('bloq', !permitidos.includes(b.dataset.motor)));
   $('.adjuntar').style.opacity = s.plan === 'libre' ? 0.5 : 1;
   const h = new Date().getHours();
   $('#saludo').textContent = `${h < 12 ? 'Buenos días' : h < 19 ? 'Buenas tardes' : 'Buenas noches'}${s.nombre ? ', ' + s.nombre.split(' ')[0] : ''}. Soy tu asistente de inteligencia artificial para crear, analizar y potenciar tus ideas.`;
@@ -275,9 +272,9 @@ async function enviar(texto, adjunto) {
     finally { E.enviando = false; abajo(); }
     return;
   }
-  if (E.invitado && E.restantes <= 0) return pedirCuenta('Ya usaste tus preguntas sin cuenta. Crea tu cuenta gratis para seguir: 20 mensajes al día y tu historial guardado.');
-  const C = CUPOS[E.estado?.plan] || CUPOS.libre;
-  if (!C[E.nivel]) { if (E.invitado) return pedirCuenta('Crea tu cuenta para usar los modos avanzados.'); toast(E.nivel === 'experto' ? 'El modo Experto está en el plan Ultra.' : 'El modo Razonamiento está en Impulso y Ultra.'); return abrirPlanes(); }
+  if (E.invitado && E.restantes <= 0) return pedirCuenta('Ya usaste tus preguntas sin cuenta. Crea tu cuenta gratis para seguir: 20 créditos cada 5 horas y tu historial guardado.');
+  const permitidos = E.invitado ? MOTORES_PLAN.invitado : (E.cred?.motores || MOTORES_PLAN[E.estado?.plan] || ['chispa']);
+  if (!permitidos.includes(E.motor)) { if (E.invitado) return pedirCuenta('Crea tu cuenta para usar los otros motores de Elio.'); toast(E.motor === 'cumbre' ? 'Cumbre está en el plan Ultra.' : `${MOTORES[E.motor][0]} está en Impulso y Ultra.`); return abrirPlanes(); }
   E.enviando = true; $('#enviar').disabled = true;
   $('#vacio').classList.add('oculto'); document.body.classList.remove('vacio');
   burbujaYo(texto, adjunto?.nombre);
@@ -285,7 +282,7 @@ async function enviar(texto, adjunto) {
   let acumulado = '';
   try {
     if (DEMO) {
-      const resp = `¡Hola! Esto es una **demostración** de Elio.\n\n- Modo: **${E.nivel}**\n- Tu mensaje: _${texto.slice(0, 80)}_\n\n| Plan | Precio |\n|---|---|\n| Impulso | S/ 29.90 |\n| Ultra | S/ 79.90 |\n\n\`\`\`js\nconsole.log("Elio by FlexGo");\n\`\`\``;
+      const resp = `¡Hola! Esto es una **demostración** de Elio.\n\n- Motor: **${E.motor}**\n- Tu mensaje: _${texto.slice(0, 80)}_\n\n| Plan | Precio |\n|---|---|\n| Impulso | S/ 29.90 |\n| Ultra | S/ 79.90 |\n\n\`\`\`js\nconsole.log("Elio by FlexGo");\n\`\`\``;
       for (const w of resp.split(/(\s+)/)) { acumulado += w; b.pintar(acumulado); abajo(); await new Promise((r) => setTimeout(r, 18)); }
       b.pintar(acumulado, true);
       if (!E.conv) { E.conv = 'demo-' + Date.now(); E.chats.unshift({ id: E.conv, titulo: texto.slice(0, 60) }); pintarChats(); $('#titulo-chat').textContent = texto.slice(0, 60); }
@@ -295,7 +292,7 @@ async function enviar(texto, adjunto) {
     const r = await fetch(`${CFG.SUPABASE_URL}/functions/v1/elio-chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', apikey: CFG.SUPABASE_KEY, ...(s?.session ? { Authorization: `Bearer ${s.session.access_token}` } : {}) },
-      body: JSON.stringify(E.invitado ? { texto, invitado: true, historial: E.historialInv } : { conversacion: E.conv, texto, nivel: E.nivel, adjunto }),
+      body: JSON.stringify(E.invitado ? { texto, invitado: true, historial: E.historialInv } : { conversacion: E.conv, texto, motor: E.motor, adjunto }),
     });
     if (!r.ok || !r.body) {
       const j = await r.json().catch(() => ({}));
@@ -319,15 +316,17 @@ async function enviar(texto, adjunto) {
         if (ev.tipo === 'texto') { acumulado += ev.t; b.pintar(acumulado); abajo(); }
         if (ev.tipo === 'aviso') toast(ev.t);
         if (ev.tipo === 'invitado') { E.restantes = ev.restantes; guardarRestantes(); pintarRestantes(); }
+        if (ev.tipo === 'creditos' && ev.estado) { E.cred = ev.estado; pintarCreditos(); }
         if (ev.tipo === 'error') fallo = ev.mensaje;
       }
     }
     if (fallo && !acumulado) b.error(fallo, () => enviar(texto, adjunto)); else b.pintar(acumulado || '…', true);
     if (E.invitado) {
       if (acumulado) E.historialInv.push({ rol: 'user', contenido: texto }, { rol: 'assistant', contenido: acumulado });
-      if (E.restantes <= 0) setTimeout(() => pedirCuenta('¿Te gustó? Crea tu cuenta gratis para seguir conversando con Elio: 20 mensajes al día y tu historial guardado.'), 1800);
+      if (E.restantes <= 0) setTimeout(() => pedirCuenta('¿Te gustó? Crea tu cuenta gratis para seguir conversando con Elio: 20 créditos cada 5 horas y tu historial guardado.'), 1800);
       else if (E.restantes === 1) toast('Te queda 1 pregunta sin cuenta.');
-    } else cargarEstado();
+    } else { cargarEstado(); contarParaEncuesta(); }
+    if (E.invitado) contarParaEncuesta();
   } catch (err) {
     b.error('Se cortó la conexión. Inténtalo de nuevo.', () => enviar(texto, adjunto));
   } finally {
@@ -346,13 +345,57 @@ $('#f-mensaje').addEventListener('submit', (e) => {
 });
 $$('.sugerencias button').forEach((b) => b.addEventListener('click', () => enviar(b.dataset.prompt, null)));
 $$('.niveles button').forEach((b) => b.addEventListener('click', () => {
-  const C = CUPOS[E.estado?.plan] || CUPOS.libre;
-  if (!C[b.dataset.nivel] && E.invitado) return pedirCuenta('Crea tu cuenta para usar los modos avanzados.');
-  if (!C[b.dataset.nivel]) { toast(b.dataset.nivel === 'experto' ? 'El modo Experto está en el plan Ultra.' : 'El modo Razonamiento está en Impulso y Ultra.'); return abrirPlanes(); }
-  E.nivel = b.dataset.nivel; $$('.niveles button').forEach((x) => x.classList.toggle('on', x === b));
-  $('#modo-txt').textContent = { rapido: 'Rápido', razonamiento: 'Razonamiento', experto: 'Experto' }[E.nivel];
-  $('#niveles').classList.add('oculto');
+  const m = b.dataset.motor;
+  const permitidos = E.invitado ? MOTORES_PLAN.invitado : (E.cred?.motores || MOTORES_PLAN[E.estado?.plan] || ['chispa']);
+  if (!permitidos.includes(m) && E.invitado) return pedirCuenta('Crea tu cuenta para usar los otros motores de Elio.');
+  if (!permitidos.includes(m)) { toast(m === 'cumbre' ? 'Cumbre está en el plan Ultra.' : `${MOTORES[m][0]} está en Impulso y Ultra.`); return abrirPlanes(); }
+  E.motor = m; $$('.niveles button').forEach((x) => x.classList.toggle('on', x === b));
+  $('#modo-txt').textContent = MOTORES[m][0].split(' ').slice(1).join(' ');
+  $('#niveles').classList.add('oculto'); pintarCreditos();
 }));
+
+// ---------- Créditos: medidor visible ----------
+const horaCorta = (t) => t ? new Date(t).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }) : '';
+const diaCorto = (t) => t ? new Date(t).toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'short' }) : '';
+function pintarCreditos() {
+  const c = E.cred;
+  if (!c || E.invitado) { $('#medidor').textContent = ''; return; }
+  const quedanV = Math.max(0, c.ventana_max - c.ventana_usado), quedanS = Math.max(0, c.semana_max - c.semana_usado);
+  const quedan = Math.min(quedanV, quedanS);
+  const renueva = quedanS < quedanV ? `se renueva el ${diaCorto(c.semana_renueva)}` : (c.ventana_renueva ? `se renueva a las ${horaCorta(c.ventana_renueva)}` : 'ventana de 5 horas');
+  $('#medidor').textContent = `${MOTORES[E.motor][0]} · te quedan ${quedan} créditos · ${renueva} — `;
+  $('#medidor').classList.toggle('poco', quedan < MOTORES[E.motor][1] * 3);
+  const barra = (t, usado, max, pie) => `<div class="cupo">${t}: ${usado} de ${max}<div class="b"><i style="width:${Math.min(100, (usado / max) * 100)}%"></i></div><small>${pie}</small></div>`;
+  $('#cupos').innerHTML = barra('Créditos (5 horas)', c.ventana_usado, c.ventana_max, c.ventana_renueva ? `Se renuevan a las ${horaCorta(c.ventana_renueva)}` : 'Ventana libre')
+    + barra('Esta semana', c.semana_usado, c.semana_max, `Se renueva el ${diaCorto(c.semana_renueva)}`);
+}
+
+// ---------- Encuesta (una sola vez, se puede cerrar) ----------
+const leerLS = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+const ponerLS = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+function contarParaEncuesta() {
+  if (DEMO || leerLS('elio_encuesta') || E.cred?.encuesta) return;
+  const n = Number(leerLS('elio_mensajes_enc') || 0) + 1; ponerLS('elio_mensajes_enc', String(n));
+  if (n >= 2) setTimeout(() => $('#encuesta').classList.remove('oculto'), 1500);
+}
+async function cerrarEncuesta() {
+  $('#encuesta').classList.add('oculto'); ponerLS('elio_encuesta', 'cerrada');
+  if (sb && E.sesion) sb.rpc('elio_encuesta_cerrar');
+}
+$('#enc-cerrar').addEventListener('click', cerrarEncuesta);
+$('#enc-no').addEventListener('click', cerrarEncuesta);
+$$('.enc-op').forEach((g) => g.addEventListener('change', (e) => {
+  const max = Number(g.dataset.max); const marcados = g.querySelectorAll('input:checked');
+  if (max > 1 && marcados.length > max) { e.target.checked = false; toast(`Puedes marcar hasta ${max}.`); }
+}));
+$('#enc-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const val = (gr) => [...$(`[data-grupo=${gr}]`).querySelectorAll('input:checked')].map((i) => i.value);
+  const r = { usa: val('usa'), para: val('para'), falta: val('falta'), pagaria: val('pagaria')[0] || null, comentario: $('#enc-comentario').value.trim(), vincular: $('#enc-vincular').checked };
+  if (!r.usa.length && !r.para.length && !r.falta.length && !r.pagaria) return toast('Marca al menos una respuesta.');
+  if (sb && !DEMO) { const { error } = await sb.rpc('elio_encuesta_responder', r); if (error) return toast(error.message); }
+  $('#encuesta').classList.add('oculto'); ponerLS('elio_encuesta', 'hecha'); toast('¡Gracias! Tus respuestas nos ayudan a mejorar Elio ✔');
+});
 $('#b-modos').addEventListener('click', (e) => { e.stopPropagation(); $('#niveles').classList.toggle('oculto'); });
 $('#chip-modo').addEventListener('click', (e) => { e.stopPropagation(); $('#niveles').classList.toggle('oculto'); });
 $$('[data-pronto]').forEach((b) => b.addEventListener('click', () => toast(`${b.dataset.pronto}: muy pronto en Elio.`)));
@@ -737,7 +780,27 @@ async function cargarAdmin() {
   ].map(([k, v]) => `<div><b>${esc(v)}</b><small>${k}</small></div>`).join('');
   $('#admin-pagos').innerHTML = (d.pagos || []).length ? d.pagos.map((p) => `<div class="pago-fila"><div><b>${esc(p.nombre || '')}</b> · ${esc(p.email || '')}<br>${NOMBRE_PLAN[p.plan]} · S/ ${Number(p.monto).toFixed(2)} · Operación <b>${esc(p.operacion)}</b> · ${new Date(p.creado).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' })} <span class="estado ${p.estado}">${p.estado}</span></div>
     <div class="acc">${p.estado === 'pendiente' ? `<button class="boton principal" data-ok="${p.id}">Aprobar</button><button class="boton" data-no="${p.id}">Rechazar</button>` : ''}</div></div>`).join('') : '<p class="nota">Todavía no hay pagos.</p>';
-  cargarIntereses();
+  cargarIntereses(); cargarConsumo(); cargarEncuestaAdmin();
+}
+const NOMBRE_FUNCION = { chat: 'Chat', invitado: 'Invitados', biblioteca: 'Biblioteca / Mi día', busqueda: 'Búsqueda', imagen: 'Imágenes' };
+async function cargarConsumo() {
+  if (DEMO) return;
+  const r = await sb.rpc('elio_admin_consumo'); if (r.error) { $('#admin-consumo').innerHTML = '<p class="nota">No se pudo cargar.</p>'; return; }
+  const d = r.data || {};
+  $('#admin-consumo').innerHTML = `<div class="tabla-int"><div class="fila cab"><span>Función · motor</span><span>Mensajes</span><span>Créditos</span><span>Costo US$</span></div>
+    ${(d.por_funcion || []).map((x) => `<div class="fila"><span>${NOMBRE_FUNCION[x.funcion] || esc(x.funcion)} · ${MOTORES[x.motor]?.[0] || esc(x.motor)}</span><span>${x.n}</span><span>${x.creditos}</span><span>${Number(x.costo).toFixed(4)}</span></div>`).join('') || '<div class="fila"><span>Sin consumo todavía</span></div>'}</div>
+    <p class="nota">Por plan: ${(d.por_plan || []).map((x) => `${NOMBRE_PLAN[x.plan] || x.plan}: ${x.personas} persona(s), US$ ${Number(x.costo).toFixed(4)}`).join(' · ') || '—'}</p>`;
+}
+const ETQ_ENC = { chatgpt: 'ChatGPT', gemini: 'Gemini', claude: 'Claude', copilot: 'Copilot', meta: 'Meta AI', ninguna: 'Ninguna', otra: 'Otra', estudiar: 'Estudiar', trabajo: 'Trabajo', redactar: 'Redactar', investigar: 'Investigar', imagenes: 'Imágenes', programar: 'Programar', organizar: 'Organizar mi día', negocio: 'Mi negocio', web: 'Buscar en internet', investigacion: 'Investigación profunda', documentos: 'Leer documentos', recordatorios: 'Recordatorios', voz: 'Voz', video: 'Video', no: 'No pagaría', hasta20: 'Hasta S/ 20', '20a40': 'S/ 20–40', '40a90': 'S/ 40–90', mas90: 'Más de S/ 90' };
+async function cargarEncuestaAdmin() {
+  if (DEMO) return;
+  const r = await sb.rpc('elio_admin_encuesta'); if (r.error) { $('#admin-encuesta').innerHTML = '<p class="nota">No se pudo cargar.</p>'; return; }
+  const d = r.data || {}; const lista = (x) => (x || []).map((i) => `${ETQ_ENC[i.nombre] || esc(i.nombre)} <b>${i.n}</b>`).join(' · ') || '—';
+  $('#admin-encuesta').innerHTML = `<p class="nota">Respuestas: <b>${d.total || 0}</b> ${d.total ? '<button class="boton" id="enc-csv" type="button">Descargar CSV</button>' : ''}</p>
+    <p><b>Qué IA usan:</b> ${lista(d.usa)}</p><p><b>Para qué:</b> ${lista(d.para)}</p><p><b>Qué les falta:</b> ${lista(d.falta)}</p><p><b>¿Pagarían?:</b> ${lista(d.pagaria)}</p>
+    ${(d.comentarios || []).length ? `<h4>Comentarios</h4>${d.comentarios.map((c) => `<div class="p-item">${esc(c.comentario)}<small>${new Date(c.creado).toLocaleDateString('es-PE')}</small></div>`).join('')}` : ''}`;
+  const b = $('#enc-csv');
+  if (b) b.onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['fecha;usa;para;falta;pagaria;comentario\n' + (d.csv || '')], { type: 'text/csv;charset=utf-8' })); a.download = 'encuesta-elio.csv'; a.click(); };
 }
 async function cargarIntereses() {
   let d = DEMO ? { con_permiso: 1, temas: [{ nombre: 'ventas', n: 3 }], rubros: [{ nombre: 'bodega', n: 2 }], servicios: [{ servicio: 'kivo', interesados: 1, mostradas: 2, clics: 1 }], contactables: [] } : null;

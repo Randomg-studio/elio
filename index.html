@@ -10,7 +10,7 @@
 <link rel="apple-touch-icon" href="img/Elio_Icono-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="app.css?v=13">
+<link rel="stylesheet" href="app.css?v=14">
 </head>
 <body>
 <!-- Iconos (SVG reutilizables) -->
@@ -121,7 +121,7 @@
       <nav id="lista-chats" aria-label="Tus conversaciones"></nav>
       <button class="enlace ver-mas oculto" id="ver-mas"><svg><use href="#i-abajo"/></svg>Ver más</button>
     </div>
-    <div class="lat-invitado vidrio"><b>Guarda tus chats</b><p>Crea tu cuenta gratis: 20 mensajes al día, historial y más.</p><button class="boton principal" id="lat-registro">Regístrate gratis</button><a class="boton secundario" href="https://flexgogroup.com" target="_blank" rel="noopener">Conoce FlexGo Group <svg><use href="#i-derecha"/></svg></a></div>
+    <div class="lat-invitado vidrio"><b>Guarda tus chats</b><p>Crea tu cuenta gratis: 20 créditos cada 5 horas, historial y más.</p><button class="boton principal" id="lat-registro">Regístrate gratis</button><a class="boton secundario" href="https://flexgogroup.com" target="_blank" rel="noopener">Conoce FlexGo Group <svg><use href="#i-derecha"/></svg></a></div>
     <div class="lat-plan">
       <a class="boton secundario solo-cuenta" href="https://flexgogroup.com" target="_blank" rel="noopener">Conoce FlexGo Group <svg><use href="#i-derecha"/></svg></a>
       <div id="cupos"></div>
@@ -180,20 +180,21 @@
         <div class="niveles-envoltura">
           <button type="button" class="icono cuadro" id="b-modos" aria-label="Elegir modo" aria-haspopup="menu"><svg><use href="#i-mas"/></svg></button>
           <div class="niveles vidrio oculto" id="niveles" role="menu" aria-label="Modo de Elio">
-            <button type="button" data-nivel="rapido" class="on" role="menuitemradio"><b>⚡ Rápido</b><small>Respuestas al instante</small></button>
-            <button type="button" data-nivel="razonamiento" role="menuitemradio"><b>🧠 Razonamiento</b><small>Piensa más · Impulso y Ultra</small></button>
-            <button type="button" data-nivel="experto" role="menuitemradio"><b>★ Experto</b><small>El más potente · Ultra</small></button>
+            <button type="button" data-motor="chispa" class="on" role="menuitemradio"><b>⚡ Chispa</b><small>Lo diario, al instante · 1 crédito</small></button>
+            <button type="button" data-motor="pulso" role="menuitemradio"><b>💡 Pulso</b><small>Piensa más · 2 créditos · Impulso y Ultra</small></button>
+            <button type="button" data-motor="orbita" role="menuitemradio"><b>🪐 Órbita</b><small>Experto en análisis y documentos · 10 créditos · Impulso y Ultra</small></button>
+            <button type="button" data-motor="cumbre" role="menuitemradio"><b>🏔️ Cumbre</b><small>El más potente · 25 créditos · Ultra</small></button>
           </div>
         </div>
         <label class="icono cuadro adjuntar" title="Subir imagen o PDF (Impulso y Ultra)" aria-label="Subir archivo"><svg><use href="#i-clip"/></svg><input type="file" id="archivo" accept="image/png,image/jpeg,image/webp,image/gif,application/pdf" hidden></label>
-        <span class="chip" id="chip-modo"><svg><use href="#i-rayo"/></svg><span id="modo-txt">Rápido</span></span>
+        <span class="chip" id="chip-modo"><svg><use href="#i-rayo"/></svg><span id="modo-txt">Chispa</span></span>
         <button type="button" class="chip pronto" data-pronto="Buscar en la web"><svg><use href="#i-mundo"/></svg>Buscar en la web<em>Pronto</em></button>
         <span class="espacio"></span>
         <button type="button" class="icono cuadro" data-pronto="Dictado por voz" aria-label="Dictar por voz (muy pronto)"><svg><use href="#i-micro"/></svg></button>
         <button class="enviar" id="enviar" type="submit" aria-label="Enviar"><svg><use href="#i-enviar"/></svg></button>
       </div>
     </form>
-    <p class="nota-ia">Elio puede equivocarse. Revisa la información importante.</p>
+    <p class="nota-ia"><span id="medidor"></span>Elio puede equivocarse. Revisa la información importante.</p>
   </section>
 </div>
 
@@ -205,22 +206,22 @@
     <div class="tarjetas">
       <article class="tarjeta" data-plan="libre">
         <h3>Libre</h3><p class="precio">S/ 0</p>
-        <ul><li>20 mensajes al día</li><li>Modo Rápido</li><li>Historial de chats</li></ul>
+        <ul><li>⚡ Chispa</li><li>20 créditos cada 5 horas · 100 por semana</li><li>Historial de chats, Mi día y Biblioteca básica</li></ul>
         <button class="boton" disabled>Tu plan base</button>
       </article>
       <article class="tarjeta destacada" data-plan="impulso">
         <span class="cinta">Más elegido</span>
         <h3>Impulso</h3><p class="precio">S/ 29.90<small>/mes</small></p>
-        <ul><li>100 mensajes rápidos al día</li><li>300 en modo Razonamiento al mes</li><li>Sube PDF e imágenes</li><li>Ideal para estudiantes y profesionales</li></ul>
+        <ul><li>⚡ Chispa · 💡 Pulso · 🪐 Órbita</li><li>60 créditos cada 5 horas · 340 por semana</li><li>Sube PDF e imágenes</li><li>Resumen de Mi día por correo y Biblioteca amplia</li></ul>
         <button class="boton principal" data-comprar="impulso">Elegir Impulso</button>
       </article>
       <article class="tarjeta" data-plan="ultra">
         <h3>Ultra</h3><p class="precio">S/ 79.90<small>/mes</small></p>
-        <ul><li>150 mensajes rápidos al día</li><li>800 en modo Razonamiento al mes</li><li>200 en modo Experto (el más potente)</li><li>Documentos largos y análisis</li><li>Para empresas y usuarios avanzados</li></ul>
+        <ul><li>Los 4 motores, incluido 🏔️ Cumbre (el más potente)</li><li>150 créditos cada 5 horas · 780 por semana</li><li>Documentos largos y análisis</li><li>Para empresas y usuarios avanzados</li></ul>
         <button class="boton principal" data-comprar="ultra">Elegir Ultra</button>
       </article>
     </div>
-    <p class="nota">Cupos claros, sin sorpresas. Pago mensual por Yape; tu plan se activa cuando confirmamos el pago (normalmente el mismo día).</p>
+    <p class="nota">Cada mensaje gasta créditos según el motor: Chispa 1 · Pulso 2 · Órbita 10 · Cumbre 25. Cupos claros, sin sorpresas. Pago mensual por Yape; tu plan se activa cuando confirmamos el pago (normalmente el mismo día).</p>
   </div>
 </div>
 
@@ -314,6 +315,26 @@
   </div>
 </div>
 
+<!-- Encuesta (una sola vez) -->
+<aside id="encuesta" class="encuesta vidrio oculto" aria-labelledby="encuesta-t">
+  <button class="icono cerrar" id="enc-cerrar" aria-label="Cerrar encuesta">✕</button>
+  <h3 id="encuesta-t">¿Nos ayudas a mejorar Elio? <small>1 minuto</small></h3>
+  <form id="enc-form">
+    <fieldset><legend>1. ¿Qué IA usas hoy?</legend><div class="enc-op" data-grupo="usa" data-max="7">
+      <label><input type="checkbox" value="chatgpt">ChatGPT</label><label><input type="checkbox" value="gemini">Gemini</label><label><input type="checkbox" value="claude">Claude</label><label><input type="checkbox" value="copilot">Copilot</label><label><input type="checkbox" value="meta">Meta AI</label><label><input type="checkbox" value="ninguna">Ninguna</label><label><input type="checkbox" value="otra">Otra</label></div></fieldset>
+    <fieldset><legend>2. ¿Para qué la usas más? <small>(hasta 3)</small></legend><div class="enc-op" data-grupo="para" data-max="3">
+      <label><input type="checkbox" value="estudiar">Estudiar</label><label><input type="checkbox" value="trabajo">Trabajo</label><label><input type="checkbox" value="redactar">Redactar textos</label><label><input type="checkbox" value="investigar">Investigar</label><label><input type="checkbox" value="imagenes">Crear imágenes</label><label><input type="checkbox" value="programar">Programar</label><label><input type="checkbox" value="organizar">Organizar mi día</label><label><input type="checkbox" value="negocio">Mi negocio</label><label><input type="checkbox" value="otra">Otra</label></div></fieldset>
+    <fieldset><legend>3. ¿Qué te gustaría que haga Elio? <small>(hasta 3)</small></legend><div class="enc-op" data-grupo="falta" data-max="3">
+      <label><input type="checkbox" value="web">Buscar en internet con fuentes</label><label><input type="checkbox" value="investigacion">Investigación profunda</label><label><input type="checkbox" value="imagenes">Crear imágenes</label><label><input type="checkbox" value="documentos">Leer mis documentos</label><label><input type="checkbox" value="recordatorios">Recordatorios</label><label><input type="checkbox" value="voz">Hablarle por voz</label><label><input type="checkbox" value="video">Crear videos</label><label><input type="checkbox" value="otra">Otra</label></div></fieldset>
+    <fieldset><legend>4. ¿Pagarías por una IA así?</legend><div class="enc-op" data-grupo="pagaria" data-max="1">
+      <label><input type="radio" name="pagaria" value="no">No</label><label><input type="radio" name="pagaria" value="hasta20">Hasta S/ 20 al mes</label><label><input type="radio" name="pagaria" value="20a40">S/ 20 a 40</label><label><input type="radio" name="pagaria" value="40a90">S/ 40 a 90</label><label><input type="radio" name="pagaria" value="mas90">Más de S/ 90</label></div></fieldset>
+    <label class="enc-abierta">5. ¿Algo más que quieras contarnos? <small>(opcional)</small><textarea id="enc-comentario" maxlength="500" rows="2"></textarea></label>
+    <label class="check enc-vincular solo-cuenta"><input type="checkbox" id="enc-vincular"> Vincular mis respuestas a mi cuenta para que Elio me recomiende mejor (solo si tienes activo «aprender mis intereses»)</label>
+    <div class="a-fila fin"><button type="button" class="boton" id="enc-no">Ahora no</button><button class="boton principal" type="submit">Enviar</button></div>
+    <p class="nota">Es anónima. No guardamos tu IP.</p>
+  </form>
+</aside>
+
 <!-- Privacidad y mis datos (derechos ARCO, Ley 29733) -->
 <div id="privacidad" class="modal oculto" role="dialog" aria-modal="true" aria-labelledby="privacidad-t">
   <div class="modal-caja ancha vidrio">
@@ -349,6 +370,10 @@
     <div id="admin-resumen" class="resumen"></div>
     <h3>Pagos por Yape</h3>
     <div id="admin-pagos"></div>
+    <h3>Consumo de IA (últimos 7 días)</h3>
+    <div id="admin-consumo"></div>
+    <h3>Encuesta</h3>
+    <div id="admin-encuesta"></div>
     <h3>Intereses (últimos 30 días, solo de quienes dieron permiso)</h3>
     <div id="admin-intereses"></div>
   </div>
@@ -356,6 +381,6 @@
 
 <div id="toast" role="status"></div>
 <script src="config.js?v=1"></script>
-<script type="module" src="app.js?v=13"></script>
+<script type="module" src="app.js?v=14"></script>
 </body>
 </html>

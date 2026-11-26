@@ -386,3 +386,20 @@ em.nuevo{background:rgba(0,198,235,.16);color:var(--cian2)!important}
 .h-estado.aprobada{background:rgba(43,212,138,.14);color:var(--verde)}
 .pronto-tag{font-style:normal;font-size:11px;padding:1px 8px;border-radius:999px;background:rgba(0,198,235,.14);color:var(--cian2)}
 @media(max-width:900px){.gancho-historial span{display:none}}
+
+/* v14: motores, medidor y encuesta */
+#medidor{color:var(--cian2)}#medidor.poco{color:#ffb44d}
+.cupo small{display:block;color:var(--suave);font-size:11px;margin-top:2px}
+.encuesta{position:fixed;right:18px;bottom:18px;z-index:60;width:min(420px,calc(100vw - 32px));max-height:min(80vh,640px);overflow:auto;border-radius:20px;padding:16px 18px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.encuesta h3{margin:0 28px 8px 0;font-size:16px}.encuesta h3 small{color:var(--suave);font-weight:400;font-size:12px}
+.encuesta .cerrar{position:absolute;top:10px;right:10px}
+.encuesta fieldset{border:0;padding:0;margin:0 0 10px}.encuesta legend{font-size:13.5px;font-weight:700;margin-bottom:4px}.encuesta legend small{font-weight:400;color:var(--suave)}
+.enc-op{display:flex;flex-wrap:wrap;gap:6px}
+.enc-op label{display:flex;align-items:center;gap:5px;white-space:nowrap;font-size:12.5px;padding:4px 10px;border:1px solid var(--linea);border-radius:999px;cursor:pointer;background:rgba(255,255,255,.04)}
+.enc-op input{accent-color:var(--cian);margin:0}
+.enc-op label:has(input:checked){border-color:var(--cian);background:rgba(0,198,235,.14)}
+.enc-abierta{display:block;font-size:13.5px;font-weight:700}.enc-abierta small{font-weight:400;color:var(--suave)}
+.enc-abierta textarea{width:100%;margin-top:4px;background:rgba(255,255,255,.05);border:1px solid var(--linea);border-radius:10px;color:var(--texto);padding:8px;font:inherit;font-size:13px;box-sizing:border-box}
+.enc-vincular{font-size:12px;margin:8px 0;align-items:flex-start}
+.encuesta .a-fila .boton{width:auto;padding:7px 14px;font-size:13px}
+body.es-invitado .enc-vincular{display:none}
