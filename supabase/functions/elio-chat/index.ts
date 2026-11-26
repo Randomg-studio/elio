@@ -1,4 +1,4 @@
-// ELIO by FlexGo Group · Función del servidor «elio-chat» (Supabase Edge Function, Deno) · v3 (topes reservados antes de responder)
+// ELIO by FlexGo Group · Función del servidor «elio-chat» (Supabase Edge Function, Deno) · v4 (intereses con permiso y recomendaciones de FlexGo)
 // - Invitados (sin cuenta): 4 preguntas al día, luego se les pide crear su cuenta gratis.
 // - Plan Libre e invitados: Gemini (si falla o no hay cuota, responde Claude Haiku como respaldo).
 // - Planes Impulso y Ultra: Claude (Haiku 5.5 rápido/razonamiento, Sonnet 5.5 experto).
@@ -46,7 +46,70 @@ Reglas:
 - Para salud, temas legales o dinero, da información general y recomienda consultar a un profesional.
 - Con estudiantes, explica el porqué para que aprendan; no solo des la respuesta.
 - No pidas ni guardes contraseñas, números de tarjeta ni datos sensibles.
-- Si te preguntan quién eres: «Soy Elio, la IA de FlexGo Group».`;
+- Si te preguntan quién eres: «Soy Elio, la IA de FlexGo Group».
+
+Servicios de FlexGo Group (recomiéndalos solo cuando de verdad ayuden a lo que la persona pregunta):
+- Logrin Negocio: sistema para gestionar y organizar un negocio. https://logrin.flexgogroup.com
+- CreaGo: planifica contenido y crea textos e imágenes para redes con la voz de la marca. Empieza gratis. https://flexgogroup.com/creago.html
+- Kivo Agentes: agente de IA que atiende a los clientes por WhatsApp y redes 24/7, toma pedidos y citas y califica a cada interesado. https://flexgogroup.com/kivo.html
+- Páginas web: webs y landing pages para negocios en Perú. https://flexgogroup.com/paginas-web.html
+- Eleva: la marca educativa de FlexGo Group; está preparando su primer programa (muy pronto). https://flexgogroup.com/eleva.html
+Cómo recomendar:
+- Primero responde de verdad y por completo. Nunca escondas ni recortes la respuesta para empujar una compra.
+- Si la pregunta se relaciona claramente con un servicio, menciónalo una sola vez, en una o dos frases naturales, como lo haría un amigo que sabe (por ejemplo: «Por cierto, esto justo lo resuelve Kivo…»), con su enlace.
+- Un servicio por respuesta como máximo. Si no hay relación clara, no recomiendes nada.
+- No repitas un servicio que ya recomendaste en esta conversación. Si la persona dice que no le interesa, no vuelvas a insistir.
+- No inventes precios, funciones, plazos ni promociones. Si preguntan precios, envíalos al enlace del servicio.`;
+
+const SERVICIOS = ["logrin", "creago", "kivo", "paginas_web", "eleva"] as const;
+const NOMBRE_SERVICIO: Record<string, string> = { logrin: "Logrin", creago: "CreaGo", kivo: "Kivo", paginas_web: "Páginas web", eleva: "Eleva" };
+// Qué servicios se recomendaron en un texto (por sus enlaces)
+function serviciosEn(t: string): string[] {
+  const r: string[] = [];
+  if (/logrin\.flexgogroup\.com|flexgogroup\.com\/logrin/i.test(t)) r.push("logrin");
+  if (/flexgogroup\.com\/creago/i.test(t)) r.push("creago");
+  if (/flexgogroup\.com\/kivo/i.test(t)) r.push("kivo");
+  if (/flexgogroup\.com\/paginas-web/i.test(t)) r.push("paginas_web");
+  if (/flexgogroup\.com\/eleva/i.test(t)) r.push("eleva");
+  return r;
+}
+const textoDe = (m: Msg) => typeof m.content === "string" ? m.content : m.content.map((b) => b.type === "text" ? b.text : "").join(" ");
+const yaRecomendados = (h: Msg[]) => [...new Set(h.filter((m) => m.role === "assistant").flatMap((m) => serviciosEn(textoDe(m))))];
+const avisoRecomendados = (ya: string[]) => ya.length ? ` En esta conversación ya recomendaste: ${ya.map((x) => NOMBRE_SERVICIO[x]).join(", ")}. No los vuelvas a mencionar salvo que la persona pregunte por ellos.` : "";
+
+// Etiquetas cortas de interés (solo con permiso). Nunca datos sensibles. Devuelve el costo.
+async function aprenderIntereses(usuario: string, pregunta: string, respuesta: string): Promise<number> {
+  const r = await anthropic.messages.create({
+    model: "claude-haiku-5-5",
+    max_tokens: 300,
+    output_config: { effort: "low" },
+    system: `Clasificas el interés de una persona a partir de su pregunta a un asistente. Responde SOLO un objeto JSON, sin texto extra:
+{"sensible":bool,"rubro":string|null,"tema":string|null,"necesidad":string|null,"quiere_comprar":bool,"servicio":"logrin"|"creago"|"kivo"|"paginas_web"|"eleva"|null}
+- "sensible": true si la pregunta trata de salud, religión, política, vida sexual, origen racial o étnico, situación económica personal, datos de menores o cualquier dato sensible. En ese caso todo lo demás va en null o false.
+- "rubro": tipo de negocio si lo menciona (ej. «bodega», «academia», «restaurante»), en 1 a 3 palabras; si no, null.
+- "tema": 1 a 3 palabras en minúsculas (ej. «ventas», «marketing en redes», «matemáticas», «excel»).
+- "necesidad": lo que busca resolver, en menos de 12 palabras, sin nombres, correos, teléfonos ni datos personales.
+- "quiere_comprar": true solo si muestra intención clara de contratar o comprar una solución.
+- "servicio": el servicio de FlexGo que le serviría (logrin = gestionar su negocio; creago = contenido para redes; kivo = atender clientes por WhatsApp o redes; paginas_web = página web; eleva = cursos), o null.`,
+    messages: [{ role: "user", content: `Pregunta: ${pregunta.slice(0, 2000)}\n\nRespuesta del asistente (resumen): ${respuesta.slice(0, 1200)}` }],
+  });
+  const u = r.usage;
+  const costo = ((u.input_tokens ?? 0) * 0.1 + (u.output_tokens ?? 0) * 0.5) / 1_000_000;
+  const txt = r.content.map((b) => b.type === "text" ? b.text : "").join("");
+  const m = txt.match(/\{[\s\S]*\}/);
+  if (!m) return costo;
+  let d: { sensible?: boolean; rubro?: string | null; tema?: string | null; necesidad?: string | null; quiere_comprar?: boolean; servicio?: string | null };
+  try { d = JSON.parse(m[0]); } catch { return costo; }
+  if (d.sensible || (!d.tema && !d.rubro && !d.servicio)) return costo;
+  const corto = (v: unknown, n: number) => typeof v === "string" && v.trim() ? v.trim().toLowerCase().slice(0, n) : null;
+  await admin.from("intereses").insert({
+    usuario,
+    rubro: corto(d.rubro, 40), tema: corto(d.tema, 40), necesidad: corto(d.necesidad, 80),
+    quiere_comprar: d.quiere_comprar === true,
+    servicio: SERVICIOS.includes(d.servicio as typeof SERVICIOS[number]) ? d.servicio : null,
+  });
+  return costo;
+}
 
 const anthropic = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") });
 const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
@@ -173,7 +236,7 @@ Deno.serve(async (req) => {
       .map((m) => ({ role: m.rol as "user" | "assistant", content: m.contenido.slice(0, 3000) }));
     while (hist.length && hist[0].role !== "user") hist.shift();
     const mensajes: Msg[] = [...hist, { role: "user", content: texto }];
-    const extra = `Hoy es ${fecha} (hora de Perú). La persona todavía no tiene cuenta (invitado).`;
+    const extra = `Hoy es ${fecha} (hora de Perú). La persona todavía no tiene cuenta (invitado).` + avisoRecomendados(yaRecomendados(hist));
     const stream = new ReadableStream({
       async start(ctrl) {
         const enviar = (o: unknown) => ctrl.enqueue(enc.encode(`data: ${JSON.stringify(o)}\n\n`));
@@ -248,7 +311,10 @@ Deno.serve(async (req) => {
   if (bloqueAdjunto) contenido.push(bloqueAdjunto);
   contenido.push({ type: "text", text: texto || "Analiza este archivo." });
   const mensajes: Msg[] = [...historial, { role: "user", content: contenido }];
-  const extra = `Hoy es ${fecha} (hora de Perú). Plan del usuario: ${nombrePlan}.`;
+  const ya = yaRecomendados(historial);
+  const extra = `Hoy es ${fecha} (hora de Perú). Plan del usuario: ${nombrePlan}.` + avisoRecomendados(ya);
+  const { data: permiso } = await admin.from("perfiles").select("aprende").eq("id", user.id).maybeSingle();
+  const aprende = permiso?.aprende === true;
 
   const stream = new ReadableStream({
     async start(ctrl) {
@@ -273,6 +339,15 @@ Deno.serve(async (req) => {
         await admin.from("conversaciones").update({ actualizado: new Date().toISOString() }).eq("id", convId);
         await admin.rpc("elio_sumar_uso", { u: user.id, nivel: "costo", costo, es_libre: plan === "libre" }); // solo suma el costo
         enviar({ tipo: "fin" });
+        if (aprende && respuesta) {
+          // Solo con el permiso de la persona: qué servicio se le recomendó y etiquetas cortas de su interés.
+          const nuevos = serviciosEn(respuesta).filter((x) => !ya.includes(x));
+          if (nuevos.length) await admin.from("recomendaciones").insert(nuevos.map((servicio) => ({ usuario: user.id, servicio, conversacion: convId })));
+          try {
+            const extraCosto = await aprenderIntereses(user.id, texto, respuesta);
+            await admin.rpc("elio_sumar_uso", { u: user.id, nivel: "costo", costo: extraCosto, es_libre: plan === "libre" });
+          } catch (e) { console.warn("intereses:", String(e)); }
+        }
       } catch (e) {
         console.error("elio-chat", e instanceof Anthropic.APIError ? `${e.status} ${e.message}` : e);
         const msg = e instanceof Anthropic.RateLimitError ? "Hay mucha demanda. Espera unos segundos e inténtalo de nuevo."

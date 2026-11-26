@@ -10,7 +10,7 @@
 <link rel="apple-touch-icon" href="img/Elio_Icono-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="app.css?v=8">
+<link rel="stylesheet" href="app.css?v=9">
 </head>
 <body>
 <!-- Iconos (SVG reutilizables) -->
@@ -80,6 +80,8 @@
         <button class="enlace" type="button" id="olvide">¿Olvidaste tu contraseña?</button>
       </div>
       <label class="check terminos solo-registro"><input type="checkbox" name="terminos"><span>Acepto los <a href="terminos.html" target="_blank">Términos</a> y la <a href="privacidad.html" target="_blank">Política de privacidad</a>. Si soy menor de 18 años, tengo permiso de mi madre, padre o tutor.</span></label>
+      <label class="check terminos opcional solo-registro"><input type="checkbox" name="aprende"><span>Opcional: acepto que Elio aprenda mis intereses (sin datos sensibles) para recomendarme mejor. Puedo verlo, borrarlo o apagarlo cuando quiera.</span></label>
+      <label class="check terminos opcional solo-registro"><input type="checkbox" name="ofertas"><span>Opcional: acepto recibir ofertas de los servicios de FlexGo Group.</span></label>
       <p class="aviso" id="acceso-aviso" role="alert"></p>
       <button class="boton principal grande" id="acceso-btn" type="submit"><span>Iniciar sesión</span><svg><use href="#i-flecha"/></svg></button>
       <div class="separador"><span>o</span></div>
@@ -131,6 +133,7 @@
       <div class="menu-usuario vidrio oculto" id="menu-usuario" role="menu">
         <button id="ver-planes" role="menuitem">✦ Mejorar mi plan</button>
         <button id="ir-admin" role="menuitem" hidden>Panel de administración</button>
+        <button id="ver-privacidad" role="menuitem">Privacidad y mis datos</button>
         <a href="terminos.html" target="_blank" role="menuitem">Términos y privacidad</a>
         <button id="salir" role="menuitem">Cerrar sesión</button>
       </div>
@@ -238,6 +241,24 @@
   </form>
 </div>
 
+<!-- Privacidad y mis datos (derechos ARCO, Ley 29733) -->
+<div id="privacidad" class="modal oculto" role="dialog" aria-modal="true" aria-labelledby="privacidad-t">
+  <div class="modal-caja ancha vidrio">
+    <button class="icono cerrar" data-cerrar aria-label="Cerrar">✕</button>
+    <h2 id="privacidad-t">Privacidad y mis datos</h2>
+    <p class="nota">Tú decides. Elio nunca guarda datos sensibles (salud, religión, política, vida sexual, origen ni datos de menores) y lo que aprende se borra solo a los 12 meses.</p>
+    <label class="interruptor"><input type="checkbox" id="p-aprende"><span><b>Que Elio aprenda mis intereses</b><small>Guarda etiquetas cortas (por ejemplo «bodega · ventas») para recomendarte mejor. Si lo apagas, se borra todo lo aprendido.</small></span></label>
+    <label class="interruptor"><input type="checkbox" id="p-ofertas"><span><b>Recibir ofertas de FlexGo Group</b><small>Podremos escribirte sobre servicios que encajan con lo que buscas.</small></span></label>
+    <h3>Lo que Elio sabe de ti</h3>
+    <div id="p-lista" class="p-lista"></div>
+    <div class="p-acciones">
+      <button class="boton" id="p-descargar" type="button">Descargar mis datos</button>
+      <button class="boton" id="p-borrar" type="button">Borrar lo que Elio aprendió</button>
+    </div>
+    <p class="nota">Para borrar tu cuenta completa escríbenos a <a href="mailto:contacto@flexgogroup.com">contacto@flexgogroup.com</a>. Más detalles en la <a href="privacidad.html" target="_blank">Política de privacidad</a>.</p>
+  </div>
+</div>
+
 <!-- Administración -->
 <div id="admin" class="modal oculto" role="dialog" aria-modal="true" aria-labelledby="admin-t">
   <div class="modal-caja ancha vidrio">
@@ -255,11 +276,13 @@
     <div id="admin-resumen" class="resumen"></div>
     <h3>Pagos por Yape</h3>
     <div id="admin-pagos"></div>
+    <h3>Intereses (últimos 30 días, solo de quienes dieron permiso)</h3>
+    <div id="admin-intereses"></div>
   </div>
 </div>
 
 <div id="toast" role="status"></div>
 <script src="config.js?v=1"></script>
-<script type="module" src="app.js?v=6"></script>
+<script type="module" src="app.js?v=7"></script>
 </body>
 </html>

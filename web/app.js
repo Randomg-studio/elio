@@ -70,7 +70,7 @@ $('#f-acceso').addEventListener('submit', async (e) => {
       const { error } = await sb.auth.signInWithPassword({ email: correo, password: clave });
       if (error) throw new Error(/confirm/i.test(error.message) ? 'Primero confirma tu correo: revisa tu bandeja (y la carpeta de spam).' : 'Correo o contraseña incorrectos.');
     } else if (modo === 'registro') {
-      const { data, error } = await sb.auth.signUp({ email: correo, password: clave, options: { data: { nombre, acepto: true }, emailRedirectTo: VOLVER } });
+      const { data, error } = await sb.auth.signUp({ email: correo, password: clave, options: { data: { nombre, acepto: true, aprende: f.aprende.checked, ofertas: f.ofertas.checked }, emailRedirectTo: VOLVER } });
       if (error) throw new Error(/registered|exists/i.test(error.message) ? 'Ese correo ya tiene cuenta. Inicia sesión.' : 'No se pudo crear la cuenta: ' + error.message);
       if (!data.session) { modoAcceso('entrar'); aviso.classList.add('ok'); aviso.textContent = '¡Cuenta creada! Confirma tu correo (revisa también spam) y luego inicia sesión.'; }
     } else {
@@ -392,6 +392,55 @@ $$('[data-cerrar]').forEach((b) => b.addEventListener('click', () => b.closest('
 $$('.modal').forEach((m) => m.addEventListener('click', (e) => { if (e.target === m && m.id !== 'nueva-clave') m.classList.add('oculto'); }));
 addEventListener('keydown', (e) => { if (e.key === 'Escape') $$('.modal').forEach((m) => m.id !== 'nueva-clave' && m.classList.add('oculto')); });
 
+// ---------- Privacidad y mis datos ----------
+const NOMBRE_SERVICIO = { logrin: 'Logrin', creago: 'CreaGo', kivo: 'Kivo', paginas_web: 'Páginas web', eleva: 'Eleva' };
+let misDatos = null;
+$('#ver-privacidad').addEventListener('click', abrirPrivacidad);
+async function abrirPrivacidad() {
+  $('#menu-usuario').classList.add('oculto');
+  $('#privacidad').classList.remove('oculto');
+  $('#p-lista').innerHTML = '<p class="nota">Cargando…</p>';
+  if (DEMO) misDatos = { aprende: true, acepta_ofertas: false, intereses: [{ fecha: new Date().toISOString(), rubro: 'bodega', tema: 'ventas', necesidad: 'vender más por whatsapp', servicio: 'kivo' }], recomendaciones: [] };
+  else { const r = await sb.rpc('elio_mi_privacidad'); if (r.error) { $('#p-lista').innerHTML = '<p class="nota">No se pudo cargar. Inténtalo de nuevo.</p>'; return; } misDatos = r.data; }
+  $('#p-aprende').checked = !!misDatos.aprende; $('#p-ofertas').checked = !!misDatos.acepta_ofertas;
+  const l = misDatos.intereses || [];
+  $('#p-lista').innerHTML = l.length ? l.map((i) => `<div class="p-item"><b>${esc([i.rubro, i.tema].filter(Boolean).join(' · ') || 'Interés')}</b>${i.necesidad ? ` — ${esc(i.necesidad)}` : ''}${i.servicio ? ` <span class="p-serv">${NOMBRE_SERVICIO[i.servicio] || ''}</span>` : ''}<small>${new Date(i.fecha).toLocaleDateString('es-PE', { day: 'numeric', month: 'short', year: 'numeric' })}</small></div>`).join('')
+    : `<p class="nota">${misDatos.aprende ? 'Todavía no hay nada aprendido.' : 'El aprendizaje está apagado: Elio no guarda tus intereses.'}</p>`;
+}
+async function guardarPermisos() {
+  const aprender = $('#p-aprende').checked, ofertas = $('#p-ofertas').checked;
+  if (!aprender && misDatos?.aprende && (misDatos.intereses || []).length && !confirm('Al apagarlo se borra todo lo que Elio aprendió de ti. ¿Continuar?')) { $('#p-aprende').checked = true; return; }
+  if (!DEMO) { const { error } = await sb.rpc('elio_privacidad_ajustar', { aprender, ofertas }); if (error) return toast('No se pudo guardar. Inténtalo de nuevo.'); }
+  toast('Preferencias guardadas ✔'); abrirPrivacidad();
+}
+$('#p-aprende').addEventListener('change', guardarPermisos);
+$('#p-ofertas').addEventListener('change', guardarPermisos);
+$('#p-borrar').addEventListener('click', async () => {
+  if (!confirm('¿Borrar todo lo que Elio aprendió de ti? No se puede deshacer.')) return;
+  if (!DEMO) { const { error } = await sb.rpc('elio_borrar_mis_intereses'); if (error) return toast('No se pudo borrar. Inténtalo de nuevo.'); }
+  toast('Listo: se borró lo aprendido ✔'); abrirPrivacidad();
+});
+$('#p-descargar').addEventListener('click', () => {
+  if (!misDatos) return;
+  const datos = { exportado: new Date().toISOString(), cuenta: { nombre: E.estado?.nombre || '', correo: E.sesion?.user?.email || '' }, ...misDatos };
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(datos, null, 2)], { type: 'application/json' }));
+  a.download = 'mis-datos-elio.json'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+});
+
+// Clic en un servicio recomendado (solo se anota si la persona dio permiso; el servidor lo comprueba)
+function servicioDeEnlace(u) {
+  if (/logrin\.flexgogroup\.com|flexgogroup\.com\/logrin/i.test(u)) return 'logrin';
+  const m = u.match(/flexgogroup\.com\/(creago|kivo|paginas-web|eleva)/i);
+  return m ? m[1].toLowerCase().replace('-', '_') : null;
+}
+$('#mensajes').addEventListener('click', (e) => {
+  const a = e.target.closest('a[href]'); if (!a) return;
+  if (!a.target) { a.target = '_blank'; a.rel = 'noopener'; }
+  const serv = servicioDeEnlace(a.href);
+  if (serv && sb && E.sesion && !DEMO) sb.rpc('elio_clic_recomendacion', { serv, conv: E.conv || null });
+});
+
 // ---------- Administración ----------
 $('#ir-admin').addEventListener('click', cargarAdmin);
 // El panel exige la verificación en dos pasos (2FA con una app como Google Authenticator).
@@ -438,6 +487,18 @@ async function cargarAdmin() {
   ].map(([k, v]) => `<div><b>${esc(v)}</b><small>${k}</small></div>`).join('');
   $('#admin-pagos').innerHTML = (d.pagos || []).length ? d.pagos.map((p) => `<div class="pago-fila"><div><b>${esc(p.nombre || '')}</b> · ${esc(p.email || '')}<br>${NOMBRE_PLAN[p.plan]} · S/ ${Number(p.monto).toFixed(2)} · Operación <b>${esc(p.operacion)}</b> · ${new Date(p.creado).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' })} <span class="estado ${p.estado}">${p.estado}</span></div>
     <div class="acc">${p.estado === 'pendiente' ? `<button class="boton principal" data-ok="${p.id}">Aprobar</button><button class="boton" data-no="${p.id}">Rechazar</button>` : ''}</div></div>`).join('') : '<p class="nota">Todavía no hay pagos.</p>';
+  cargarIntereses();
+}
+async function cargarIntereses() {
+  let d = DEMO ? { con_permiso: 1, temas: [{ nombre: 'ventas', n: 3 }], rubros: [{ nombre: 'bodega', n: 2 }], servicios: [{ servicio: 'kivo', interesados: 1, mostradas: 2, clics: 1 }], contactables: [] } : null;
+  if (!DEMO) { const r = await sb.rpc('elio_admin_intereses'); if (r.error) { $('#admin-intereses').innerHTML = '<p class="nota">No se pudieron cargar.</p>'; return; } d = r.data; }
+  const lista = (x) => (x || []).length ? x.map((t) => `${esc(t.nombre)} <b>${t.n}</b>`).join(' · ') : '—';
+  $('#admin-intereses').innerHTML = `<p class="nota">Personas que dieron permiso: <b>${d.con_permiso}</b></p>
+    <p><b>Temas más buscados:</b> ${lista(d.temas)}</p><p><b>Rubros:</b> ${lista(d.rubros)}</p>
+    <div class="tabla-int"><div class="fila cab"><span>Servicio</span><span>Interesados</span><span>Recomendado</span><span>Clics</span></div>
+    ${(d.servicios || []).map((s) => `<div class="fila"><span>${NOMBRE_SERVICIO[s.servicio]}</span><span>${s.interesados}</span><span>${s.mostradas}</span><span>${s.clics}</span></div>`).join('')}</div>
+    <h4>Con intención de compra y que aceptaron ofertas</h4>
+    ${(d.contactables || []).length ? d.contactables.map((c) => `<div class="pago-fila"><div><b>${esc(c.nombre || '')}</b> · ${esc(c.email)}<br>${esc((c.servicios || '').split(', ').map((x) => NOMBRE_SERVICIO[x] || x).join(', '))}</div></div>`).join('') : '<p class="nota">Todavía nadie.</p>'}`;
 }
 $('#admin-pagos').addEventListener('click', async (e) => {
   const id = e.target.dataset.ok || e.target.dataset.no; if (!id) return;
