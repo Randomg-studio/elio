@@ -243,6 +243,15 @@
   <div class="modal-caja ancha vidrio">
     <button class="icono cerrar" data-cerrar aria-label="Cerrar">✕</button>
     <h2 id="admin-t">Panel de Elio</h2>
+    <div id="admin-2fa" class="oculto">
+      <p class="nota" id="admin-2fa-txt"></p>
+      <img id="admin-2fa-qr" alt="Código QR para tu app de verificación" width="180" height="180" hidden style="background:#fff;border-radius:12px;padding:8px;display:block;margin:10px 0">
+      <p class="nota" id="admin-2fa-clave" hidden></p>
+      <form id="admin-2fa-form" autocomplete="off" style="display:flex;gap:8px;margin-top:10px">
+        <input id="admin-2fa-codigo" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="Código de 6 números" required style="flex:1">
+        <button class="boton principal" type="submit">Verificar</button>
+      </form>
+    </div>
     <div id="admin-resumen" class="resumen"></div>
     <h3>Pagos por Yape</h3>
     <div id="admin-pagos"></div>
@@ -251,6 +260,6 @@
 
 <div id="toast" role="status"></div>
 <script src="config.js?v=1"></script>
-<script type="module" src="app.js?v=5"></script>
+<script type="module" src="app.js?v=6"></script>
 </body>
 </html>
