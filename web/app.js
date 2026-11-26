@@ -292,7 +292,7 @@ async function enviar(texto, adjunto) {
     const r = await fetch(`${CFG.SUPABASE_URL}/functions/v1/elio-chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', apikey: CFG.SUPABASE_KEY, ...(s?.session ? { Authorization: `Bearer ${s.session.access_token}` } : {}) },
-      body: JSON.stringify(E.invitado ? { texto, invitado: true, historial: E.historialInv } : { conversacion: E.conv, texto, motor: E.motor, adjunto }),
+      body: JSON.stringify(E.invitado ? { texto, invitado: true, historial: E.historialInv } : { conversacion: E.conv, texto, motor: E.motor, ...(adjunto?.documento ? { documento: adjunto.documento } : adjunto ? { adjunto } : {}) }),
     });
     if (!r.ok || !r.body) {
       const j = await r.json().catch(() => ({}));
@@ -316,7 +316,7 @@ async function enviar(texto, adjunto) {
         if (ev.tipo === 'texto') { acumulado += ev.t; b.pintar(acumulado); abajo(); }
         if (ev.tipo === 'aviso') toast(ev.t);
         if (ev.tipo === 'invitado') { E.restantes = ev.restantes; guardarRestantes(); pintarRestantes(); }
-        if (ev.tipo === 'creditos' && ev.estado) { E.cred = ev.estado; pintarCreditos(); }
+        if (ev.tipo === 'creditos' && ev.estado) { E.cred = ev.estado; pintarCreditos(); if (ev.usados > ev.minimo) toast(`Este mensaje usó ${ev.usados} créditos porque la conversación o el documento son largos. Un chat nuevo gasta menos.`); }
         if (ev.tipo === 'error') fallo = ev.mensaje;
       }
     }
@@ -416,6 +416,19 @@ $('#archivo').addEventListener('change', async (e) => {
   if (E.invitado) return pedirCuenta('Crea tu cuenta para subir archivos.');
   if ((E.estado?.plan || 'libre') === 'libre') { toast('Subir archivos está en los planes Impulso y Ultra.'); return abrirPlanes(); }
   if (f.size > 10 * 1024 * 1024) return toast('El archivo pesa más de 10 MB.');
+  if (f.type === 'application/pdf') {
+    // Modo MarkItDown: el PDF se convierte a texto UNA vez y se guarda en tu Biblioteca; en el chat solo viajan los fragmentos que sirven.
+    $('#adjunto-nombre').textContent = '📎 Leyendo ' + f.name + '…'; $('#adjunto-vista').classList.remove('oculto');
+    try {
+      const ruta = `${E.sesion.user.id}/${crypto.randomUUID()}.pdf`;
+      const { error } = await sb.storage.from('biblioteca').upload(ruta, f, { contentType: 'application/pdf', upsert: false });
+      if (error) throw new Error('No se pudo subir el PDF. Inténtalo de nuevo.');
+      const j = await llamarBiblioteca({ accion: 'procesar', ruta, nombre: f.name });
+      E.adjunto = { documento: j.documento.id, nombre: j.documento.nombre };
+      $('#adjunto-nombre').textContent = `📎 ${f.name} · ${j.documento.paginas} pág. · listo (también queda en tu Biblioteca)`;
+    } catch (err) { quitarAdjunto(); toast(err.message); }
+    return;
+  }
   const datos = await new Promise((ok, mal) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1]); r.onerror = mal; r.readAsDataURL(f); });
   E.adjunto = { tipo: f.type, nombre: f.name.slice(0, 100), datos };
   $('#adjunto-nombre').textContent = '📎 ' + f.name; $('#adjunto-vista').classList.remove('oculto');
