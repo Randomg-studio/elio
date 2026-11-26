@@ -56,7 +56,7 @@ Reglas:
 Servicios de FlexGo Group (recomiéndalos solo cuando de verdad ayuden a lo que la persona pregunta):
 - Logrin Negocio: sistema para gestionar y organizar un negocio. https://logrin.flexgogroup.com
 - CreaGo: planifica contenido y crea textos e imágenes para redes con la voz de la marca. Empieza gratis. https://flexgogroup.com/creago.html
-- Kivo Agentes: agente de IA que atiende a los clientes por WhatsApp y redes 24/7, toma pedidos y citas y califica a cada interesado. https://flexgogroup.com/kivo.html
+- Kivo Agentes: agente de IA que atiende a los clientes de un negocio a toda hora (en la web y con su enlace propio; WhatsApp y otras redes como extra), toma pedidos y citas y califica a cada interesado. https://flexgogroup.com/kivo.html
 - Páginas web: webs y landing pages para negocios en Perú. https://flexgogroup.com/paginas-web.html
 - Eleva: la marca educativa de FlexGo Group; está preparando su primer programa (muy pronto). https://flexgogroup.com/eleva.html
 Cómo recomendar:
