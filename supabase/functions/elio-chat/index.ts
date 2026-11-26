@@ -1,4 +1,4 @@
-// ELIO by FlexGo Group · Función del servidor «elio-chat» (Supabase Edge Function, Deno) · v2
+// ELIO by FlexGo Group · Función del servidor «elio-chat» (Supabase Edge Function, Deno) · v3 (topes reservados antes de responder)
 // - Invitados (sin cuenta): 4 preguntas al día, luego se les pide crear su cuenta gratis.
 // - Plan Libre e invitados: Gemini (si falla o no hay cuota, responde Claude Haiku como respaldo).
 // - Planes Impulso y Ultra: Claude (Haiku 5.5 rápido/razonamiento, Sonnet 5.5 experto).
@@ -18,6 +18,7 @@ const CUPOS: Record<Plan, { rapidoDia: number; razonamientoMes: number | null; e
   ultra: { rapidoDia: 150, razonamientoMes: 800, expertoMes: 200, adjuntos: true },
 };
 const INVITADO_MAX = 4;
+const INVITADO_IP_MAX = 10; // por conexión, aunque cambien de navegador (oficinas y casas comparten IP)
 
 const MODELOS: Record<Nivel, { model: string; effort: "low" | "medium" | "high"; maxTokens: number; pin: number; pout: number }> = {
   rapido: { model: "claude-haiku-5-5", effort: "low", maxTokens: 4000, pin: 0.1, pout: 0.5 },
@@ -158,8 +159,14 @@ Deno.serve(async (req) => {
       return json(c, 503, { mensaje: "Las preguntas gratis de hoy se agotaron. Crea tu cuenta y vuelve mañana.", codigo: "registro" });
     const ip = (req.headers.get("cf-connecting-ip") ?? req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || "sin-ip";
     const huella = await sha256(`${SAL}|${ip}|${req.headers.get("user-agent") ?? ""}|${hoy}`);
+    const huellaIp = "ip:" + await sha256(`${SAL}|${ip}|${hoy}`);
     const { data: usadas } = await admin.rpc("elio_invitado_cuantas", { h: huella });
-    if ((usadas ?? 0) >= INVITADO_MAX)
+    const { data: usadasIp } = await admin.rpc("elio_invitado_cuantas", { h: huellaIp });
+    // Se reserva la pregunta ANTES de responder: así, muchas preguntas a la vez no se saltan el tope.
+    const reserva = (usadas ?? 0) < INVITADO_MAX && (usadasIp ?? 0) < INVITADO_IP_MAX
+      ? [Number((await admin.rpc("elio_invitado_sumar", { h: huella })).data ?? INVITADO_MAX + 1), Number((await admin.rpc("elio_invitado_sumar", { h: huellaIp })).data ?? INVITADO_IP_MAX + 1)]
+      : [INVITADO_MAX + 1, INVITADO_IP_MAX + 1];
+    if (reserva[0] > INVITADO_MAX || reserva[1] > INVITADO_IP_MAX)
       return json(c, 429, { mensaje: `Ya usaste tus ${INVITADO_MAX} preguntas sin cuenta. Crea tu cuenta gratis para seguir: tienes 20 mensajes al día y tu historial guardado.`, codigo: "registro" });
     const hist: Msg[] = (Array.isArray(cuerpo.historial) ? cuerpo.historial : []).slice(-6)
       .filter((m) => (m.rol === "user" || m.rol === "assistant") && typeof m.contenido === "string")
@@ -176,9 +183,8 @@ Deno.serve(async (req) => {
           let costo = 0;
           try { if (!GEMINI_KEY) throw new Error("sin clave"); costo = await conGemini(mensajes, SISTEMA + "\n" + extra, alTexto); }
           catch (e) { if (respuesta) throw e; console.warn("respaldo Claude:", String(e)); costo = (await conClaude("rapido", mensajes, extra, alTexto)).costo; }
-          const n = await admin.rpc("elio_invitado_sumar", { h: huella });
           await admin.rpc("elio_sumar_gasto", { costo, es_libre: true });
-          enviar({ tipo: "invitado", restantes: Math.max(0, INVITADO_MAX - Number(n.data ?? INVITADO_MAX)) });
+          enviar({ tipo: "invitado", restantes: Math.max(0, INVITADO_MAX - reserva[0]) });
           enviar({ tipo: "fin" });
         } catch (e) {
           console.error("elio-chat invitado", e);
@@ -221,6 +227,9 @@ Deno.serve(async (req) => {
       : { type: "image", source: { type: "base64", media_type: tipo as "image/png", data: datos } };
   }
 
+  // Se reserva el mensaje ANTES de responder (el costo se suma al final): así, varios mensajes a la vez no se saltan el cupo.
+  await admin.rpc("elio_sumar_uso", { u: user.id, nivel, costo: 0, es_libre: plan === "libre" });
+
   let convId = cuerpo.conversacion;
   if (convId) {
     const { data: conv } = await admin.from("conversaciones").select("id").eq("id", convId).eq("usuario", user.id).maybeSingle();
@@ -262,7 +271,7 @@ Deno.serve(async (req) => {
           { conversacion: convId, usuario: user.id, rol: "assistant", contenido: respuesta || "…", nivel },
         ]);
         await admin.from("conversaciones").update({ actualizado: new Date().toISOString() }).eq("id", convId);
-        await admin.rpc("elio_sumar_uso", { u: user.id, nivel, costo, es_libre: plan === "libre" });
+        await admin.rpc("elio_sumar_uso", { u: user.id, nivel: "costo", costo, es_libre: plan === "libre" }); // solo suma el costo
         enviar({ tipo: "fin" });
       } catch (e) {
         console.error("elio-chat", e instanceof Anthropic.APIError ? `${e.status} ${e.message}` : e);

@@ -394,8 +394,41 @@ addEventListener('keydown', (e) => { if (e.key === 'Escape') $$('.modal').forEac
 
 // ---------- Administración ----------
 $('#ir-admin').addEventListener('click', cargarAdmin);
+// El panel exige la verificación en dos pasos (2FA con una app como Google Authenticator).
+let factor2fa = null;
+async function pedir2fa() {
+  const { data: nivel } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (nivel?.currentLevel === 'aal2') return true;
+  const { data: f } = await sb.auth.mfa.listFactors();
+  const listo = (f?.totp || []).find((x) => x.status === 'verified');
+  $('#admin-2fa').classList.remove('oculto'); $('#admin-resumen').innerHTML = ''; $('#admin-pagos').innerHTML = '';
+  $('#admin-2fa-qr').hidden = true; $('#admin-2fa-clave').hidden = true; $('#admin-2fa-codigo').value = '';
+  if (listo) {
+    factor2fa = listo.id;
+    $('#admin-2fa-txt').textContent = 'Por seguridad, escribe el código de 6 números que muestra tu app de verificación (Google Authenticator u otra).';
+  } else {
+    for (const x of (f?.all || []).filter((x) => x.status !== 'verified')) await sb.auth.mfa.unenroll({ factorId: x.id });
+    const { data: nuevo, error } = await sb.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'Elio admin' });
+    if (error) { $('#admin-2fa-txt').textContent = 'No se pudo activar la verificación en dos pasos: ' + error.message; return false; }
+    factor2fa = nuevo.id;
+    $('#admin-2fa-txt').textContent = 'Activa la verificación en dos pasos: abre Google Authenticator (o Microsoft Authenticator) en tu celular, toca «+», escanea este código y escribe los 6 números que aparecen.';
+    $('#admin-2fa-qr').src = nuevo.totp.qr_code; $('#admin-2fa-qr').hidden = false;
+    $('#admin-2fa-clave').textContent = 'Si no puedes escanear, escribe esta clave en la app: ' + nuevo.totp.secret; $('#admin-2fa-clave').hidden = false;
+  }
+  $('#admin-2fa-codigo').focus();
+  return false;
+}
+$('#admin-2fa-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const { error } = await sb.auth.mfa.challengeAndVerify({ factorId: factor2fa, code: $('#admin-2fa-codigo').value.trim() });
+  if (error) return toast('Código incorrecto o vencido. Escribe el que aparece ahora en tu app.');
+  toast('Verificación correcta ✔'); cargarAdmin();
+});
+
 async function cargarAdmin() {
   $('#admin').classList.remove('oculto');
+  if (!DEMO && !(await pedir2fa())) return;
+  $('#admin-2fa').classList.add('oculto');
   let d = DEMO ? { usuarios: 3, por_plan: { libre: 2, impulso: 1 }, gasto_hoy: { total_usd: 0.12 }, gasto_mes: 1.4, mensajes_hoy: 57, pagos: [{ id: 1, plan: 'impulso', monto: 29.9, operacion: '12345678', estado: 'pendiente', creado: new Date().toISOString(), nombre: 'Ana', email: 'ana@correo.com' }] } : null;
   if (!DEMO) { const r = await sb.rpc('elio_admin_resumen'); if (r.error) { $('#admin-resumen').textContent = 'Sin permiso.'; return; } d = r.data; }
   const pp = d.por_plan || {};
