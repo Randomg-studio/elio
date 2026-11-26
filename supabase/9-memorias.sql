@@ -33,8 +33,8 @@ begin
     if n >= 1 then raise exception 'En el plan Libre puedes traer 1 memoria. Borra la anterior o pásate a Impulso.'; end if;
   else
     select count(*) into n from public.memorias where usuario = new.usuario and creado >= date_trunc('month', now());
-    if n >= case p when 'ultra' then 10 else 3 end then
-      raise exception 'Llegaste a % memorias este mes, el máximo de tu plan.', case p when 'ultra' then 10 else 3 end;
+    if n >= (case p when 'ultra' then 10 else 3 end) then
+      raise exception 'Llegaste a % memorias este mes, el máximo de tu plan.', (case p when 'ultra' then 10 else 3 end);
     end if;
   end if;
   return new;
