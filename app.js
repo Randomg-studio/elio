@@ -393,7 +393,9 @@ function pintarCreditos() {
   const quedanV = Math.max(0, c.ventana_max - c.ventana_usado), quedanS = Math.max(0, c.semana_max - c.semana_usado);
   const quedan = Math.min(quedanV, quedanS);
   const renueva = quedanS < quedanV ? `se renueva el ${diaCorto(c.semana_renueva)}` : (c.ventana_renueva ? `se renueva a las ${horaCorta(c.ventana_renueva)}` : 'ventana de 5 horas');
-  $('#medidor').textContent = `${MOTORES[E.motor][0]} · te quedan ${quedan} créditos · ${renueva} — `;
+  $('#medidor').textContent = (c.plan === 'libre' && E.motor === 'orbita')
+    ? `🪐 Órbita · probadita: te quedan ${c.probadita_restante} de 3 esta semana — `
+    : `${MOTORES[E.motor][0]} · te quedan ${quedan} créditos · ${renueva} — `;
   $('#medidor').classList.toggle('poco', quedan < MOTORES[E.motor][1] * 3);
   const barra = (t, usado, max, pie) => `<div class="cupo">${t}: ${usado} de ${max}<div class="b"><i style="width:${Math.min(100, (usado / max) * 100)}%"></i></div><small>${pie}</small></div>`;
   $('#cupos').innerHTML = barra('Créditos (5 horas)', c.ventana_usado, c.ventana_max, c.ventana_renueva ? `Se renuevan a las ${horaCorta(c.ventana_renueva)}` : 'Ventana libre')
