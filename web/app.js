@@ -347,7 +347,7 @@ function taparSecretosWeb(texto) {
   let t = String(texto ?? "");
   const tapar = (re, tipo, rep) => {
     t = t.replace(re, (...a) => {
-      if (/\[(SECRETO_ELIMINADO|DOCUMENTO)\]["'»]?$/.test(a[0])) return a[0];
+      if (/\[(SECRETO_ELIMINADO|DOCUMENTO)\]/.test(a[0])) return a[0];
       h.add(tipo);
       return typeof rep === "string" ? rep : rep(...a);
     });

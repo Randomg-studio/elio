@@ -14,7 +14,7 @@ export function taparSecretos(texto: string): { texto: string; hallados: Hallazg
   let t = String(texto ?? "");
   const tapar = (re: RegExp, tipo: Hallazgo, rep: string | ((...a: string[]) => string)) => {
     t = t.replace(re, (...a: string[]) => {
-      if (/\[(SECRETO_ELIMINADO|DOCUMENTO)\]["'»]?$/.test(a[0])) return a[0];   // ya estaba tapado (p. ej. por la web): no se cuenta de nuevo
+      if (/\[(SECRETO_ELIMINADO|DOCUMENTO)\]/.test(a[0])) return a[0];   // ya estaba tapado (p. ej. por la web): no se cuenta de nuevo
       h.add(tipo); return typeof rep === "string" ? rep : rep(...a);
     });
   };
