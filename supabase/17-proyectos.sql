@@ -66,8 +66,9 @@ drop policy if exists "mensajes propios ver" on public.mensajes;
 create policy "mensajes propios ver" on public.mensajes for select using (usuario = auth.uid() and public.elio_conv_abierta(conversacion));
 
 -- La web no puede cambiar proyecto, rama ni fijado directamente (solo con las funciones de abajo)
+-- OJO: sin «security definer», para que current_user sea el rol real de quien actualiza (authenticated desde la web).
 create or replace function public.elio_proteger_conv() returns trigger
-language plpgsql security definer set search_path = public as $$
+language plpgsql security invoker set search_path = public as $$
 begin
   if current_user in ('authenticated', 'anon') and (new.proyecto is distinct from old.proyecto or new.rama_de is distinct from old.rama_de or new.fijado is distinct from old.fijado) then
     raise exception 'Usa las opciones del chat para moverlo o fijarlo.';
