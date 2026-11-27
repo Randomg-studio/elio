@@ -6,6 +6,7 @@ import DOMPurify from 'https://cdn.jsdelivr.net/npm/dompurify@3.1.6/+esm';
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 const CFG = window.ELIO_CONFIG || {};
+try { const p = new URLSearchParams(location.search).get('pedir'); if (p) localStorage.setItem('elio-pedir', p.slice(0, 80)); } catch {}
 const DEMO = !CFG.SUPABASE_URL && location.hostname === 'localhost' && location.search.includes('demo');
 const VOLVER = location.hostname === 'localhost' ? location.origin + '/' : CFG.SITIO;
 const PRECIOS = { impulso: 56.99, ultra: 159.99 };   // con IGV incluido
@@ -175,7 +176,19 @@ async function entrarApp() {
   if (sb && E.estado && !E.estado.acepto && E.sesion?.user?.user_metadata?.acepto) await sb.rpc('elio_aceptar_terminos');
   await cargarChats();
   nuevoChat();
+  ponerPreguntaPedir();
   $('#texto').focus();
+}
+// «Pregúntale a Elio cuánto pedir» (aviso de stock de Kivo/Logrin): ?pedir=<producto> deja la pregunta lista; la persona toca Enviar.
+function ponerPreguntaPedir() {
+  let p = new URLSearchParams(location.search).get('pedir');
+  try { if (p) localStorage.setItem('elio-pedir', p); else p = localStorage.getItem('elio-pedir'); localStorage.removeItem('elio-pedir'); } catch {}
+  if (!p) return;
+  const producto = String(p).replace(/[<>\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80);
+  if (location.search.includes('pedir=')) history.replaceState(null, '', location.pathname);
+  if (!producto) return;
+  $('#texto').value = `¿Cuánto debo pedir de «${producto}» y cada cuánto? Revisa mis ventas y mi stock en Logrin. Dime también qué productos se mueven poco.`;
+  $('#texto').dispatchEvent(new Event('input', { bubbles: true }));
 }
 // «Elio para Logrin»: una vez cada 6 h pregunta si el negocio sigue con su plan (el servidor decide si llama a Logrin)
 async function revisarPlanLogrin() {
