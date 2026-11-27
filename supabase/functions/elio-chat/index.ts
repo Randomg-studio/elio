@@ -84,6 +84,22 @@ function revisarSalida(t: string): { texto: string; cambio: boolean; codigo: str
   const r = taparSecretos(t).texto.replace(AUTOR_IA, (m) => (/^\s/.test(m) ? " " : "") + "Soy Elio, el asistente de inteligencia artificial de FlexGo Group.");
   return { texto: r, cambio: r !== t, codigo: "OUTPUT_BLOCK" };
 }
+// Aprendizaje anónimo (SQL 24): solo la CATEGORÍA del tema (nunca el texto) y contadores de errores y topes, sin persona.
+const CATEGORIAS: [string, RegExp][] = [
+  ["programacion", /\b(c[oó]digo|programa|python|javascript|html|css|sql|excel|f[oó]rmula|macro|api|error de|bug)\b/i],
+  ["negocio", /\b(negocio|ventas?|vender|cliente|marketing|emprend|precio|bodega|tienda|empresa|ruc|sunat|factura|boleta|inventario|stock)\b/i],
+  ["estudio", /\b(tarea|examen|universidad|colegio|tesis|monograf|ensayo|explica|resumen|resume|matem[aá]tic|f[ií]sica|qu[ií]mica|historia|apa|vancouver|referencias?)\b/i],
+  ["redaccion", /\b(redacta|escribe|correo|carta|texto|publicaci[oó]n|post|caption|mejora (este|mi) texto|corrige)\b/i],
+  ["idiomas", /\b(traduce|traducci[oó]n|ingl[eé]s|english|portugu[eé]s|franc[eé]s|idioma)\b/i],
+  ["salud", /\b(salud|m[eé]dic|s[ií]ntoma|dolor|enfermedad|pastilla|dieta|nutrici[oó]n|ansiedad|depresi[oó]n)\b/i],
+  ["legal", /\b(ley|legal|abogad|contrato|demanda|juzgado|denuncia|derecho laboral|despido)\b/i],
+  ["finanzas", /\b(cr[eé]dito|pr[eé]stamo|tcea|tea|inter[eé]s|ahorro|inversi[oó]n|deuda|presupuesto|banco)\b/i],
+  ["ideas", /\b(ideas?|creativ|nombre para|slogan|eslogan|lluvia de ideas)\b/i],
+];
+const categoria = (t: string) => (CATEGORIAS.find(([, re]) => re.test(t))?.[0]) ?? "otro";
+function metrica(plan: string, motor: string | null, tipo: "tema" | "error" | "tope", clave: string) {
+  admin.rpc("elio_metrica", { p_plan: plan, p_motor: motor ?? "-", p_tipo: tipo, p_clave: clave }).then(() => {}, () => {});
+}
 const avisoGuardia = (hallados: Hallazgo[]) => hallados.length === 1 && hallados[0] === "documento" ? MSG.PRIVACY_REDACT : MSG.SECRET_BLOCK;
 
 type Motor = "chispa" | "pulso" | "orbita" | "cumbre";
@@ -424,8 +440,10 @@ Deno.serve(async (req) => {
     const reserva = (usadas ?? 0) < INVITADO_MAX && (usadasIp ?? 0) < INVITADO_IP_MAX
       ? [Number((await admin.rpc("elio_invitado_sumar", { h: huella })).data ?? INVITADO_MAX + 1), Number((await admin.rpc("elio_invitado_sumar", { h: huellaIp })).data ?? INVITADO_IP_MAX + 1)]
       : [INVITADO_MAX + 1, INVITADO_IP_MAX + 1];
-    if (reserva[0] > INVITADO_MAX || reserva[1] > INVITADO_IP_MAX)
+    if (reserva[0] > INVITADO_MAX || reserva[1] > INVITADO_IP_MAX) {
+      metrica("invitado", null, "tope", "invitado_4");
       return json(c, 429, { mensaje: `Ya usaste tus ${INVITADO_MAX} preguntas sin cuenta. Crea tu cuenta gratis para seguir: tienes 10 créditos cada 5 horas, 3 mensajes con Órbita a la semana y tu historial guardado.`, codigo: "registro" });
+    }
     const hist: Msg[] = (Array.isArray(cuerpo.historial) ? cuerpo.historial : []).slice(-6)
       .filter((m) => (m.rol === "user" || m.rol === "assistant") && typeof m.contenido === "string")
       .map((m) => ({ role: m.rol as "user" | "assistant", content: taparSecretos(m.contenido.slice(0, 3000)).texto }));
@@ -456,9 +474,10 @@ Deno.serve(async (req) => {
           await admin.rpc("elio_sumar_gasto", { costo, es_libre: true });
           await admin.rpc("elio_anotar_consumo", { u: null, m: "chispa", f: "invitado", costo });
           enviar({ tipo: "invitado", restantes: Math.max(0, INVITADO_MAX - reserva[0]) });
+          if (respuesta) metrica("invitado", "chispa", "tema", categoria(texto));
           enviar({ tipo: "fin" });
         } catch (e) {
-          console.error("elio-chat invitado", e);
+          console.error("elio-chat invitado", e); metrica("invitado", "chispa", "error", "proveedor");
           enviar({ tipo: "error", mensaje: "No pude responder esta vez. Inténtalo de nuevo." });
         } finally { await admin.rpc("elio_cerrar_solicitud", { s: solInv }); ctrl.close(); }
       },
@@ -565,6 +584,7 @@ Deno.serve(async (req) => {
   const { data: consumoId, error: errReserva } = await admin.rpc("elio_reservar", { u: user.id, m: motor, cr: creditosEstimados });
   if (errReserva) {
     const [tipoErr, cuando] = String(errReserva.message).split("|");
+    metrica(plan, motor, "tope", tipoErr.toLowerCase().replace(/[^a-z_]/g, "").slice(0, 20) || "creditos");
     const msg = tipoErr.includes("PROBADITA")
       ? `Ya usaste tus 3 mensajes con Órbita de esta semana. Vuelven el ${hora(cuando)}. Con Impulso usas Órbita cuando quieras.`
       : tipoErr.includes("MOTOR")
@@ -646,6 +666,7 @@ Deno.serve(async (req) => {
           { conversacion: convId, usuario: user.id, rol: "assistant", contenido: respuesta || "…", nivel, motor },
         ]).select("id,rol");
         const idRespuesta = (guardados ?? []).find((x) => x.rol === "assistant")?.id;
+        if (respuesta) metrica(plan, motor, "tema", categoria(texto));
         // Copia para mejorar Elio: solo con aceptación (Libre) o «Ayúdanos a mejorar» (pago); ya tapada por el escudo; nunca en crisis
         if (guardarMuestra && respuesta && texto && !crisis) {
           try { await admin.from("mejora_muestras").insert({ usuario: user.id, plan, motor, pregunta: texto.slice(0, 12000), respuesta: respuesta.slice(0, 40000) }); } catch (_) { /* nunca corta el chat */ }
@@ -670,6 +691,7 @@ Deno.serve(async (req) => {
         }
       } catch (e) {
         console.error("elio-chat", e instanceof Anthropic.APIError ? `${e.status} ${e.message}` : e);
+        metrica(plan, motor, "error", e instanceof Anthropic.RateLimitError ? "proveedor_demanda" : e instanceof Anthropic.AuthenticationError ? "proveedor_clave" : "proveedor");
         if (!respuesta) await admin.rpc("elio_cobrar_consumo", { c: consumoId, costo: 0, creditos: 0 }); // si no hubo respuesta, se devuelven los créditos
         if (!respuesta && fotoId) await admin.rpc("elio_cobrar_foto_libre", { f: fotoId, costo: -1 });   // y la foto
         const msg = e instanceof Anthropic.RateLimitError ? "Hay mucha demanda. Espera unos segundos e inténtalo de nuevo."
