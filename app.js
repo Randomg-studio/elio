@@ -170,11 +170,18 @@ async function entrarApp() {
   $('#acceso').classList.add('oculto'); $('#app').classList.remove('oculto');
   await registrarDispositivo();
   await aceptarInvitacionPendiente();
+  await revisarPlanLogrin();
   await cargarEstado();
   if (sb && E.estado && !E.estado.acepto && E.sesion?.user?.user_metadata?.acepto) await sb.rpc('elio_aceptar_terminos');
   await cargarChats();
   nuevoChat();
   $('#texto').focus();
+}
+// «Elio para Logrin»: una vez cada 6 h pregunta si el negocio sigue con su plan (el servidor decide si llama a Logrin)
+async function revisarPlanLogrin() {
+  let ultima = 0; try { ultima = Number(localStorage.getItem('elio-logrin-revisado') || 0); } catch {}
+  if (Date.now() - ultima < 6 * 3600_000) return;
+  try { await llamarLogrin({ accion: 'estado' }); localStorage.setItem('elio-logrin-revisado', String(Date.now())); } catch {}
 }
 async function cargarEstado() {
   if (sb) { const { data } = await sb.rpc('elio_mi_estado'); E.estado = data; }
