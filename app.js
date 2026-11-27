@@ -152,6 +152,8 @@ function modoInvitado() {
   $('#saludo').textContent = 'Tu asistente de inteligencia artificial para crear, analizar y potenciar tus ideas.';
   $$('.niveles button').forEach((b) => b.classList.toggle('bloq', b.dataset.motor !== 'chispa'));
   E.chats = []; pintarChats(); nuevoChat(); pintarRestantes();
+  let d = null; try { d = localStorage.getItem('elio-despues'); } catch {}
+  if (d === 'resena') pedirCuenta('Crea tu cuenta gratis con tu correo o inicia sesión, y te llevamos directo a dejar tu reseña.');
 }
 function pintarRestantes() {
   const corto = matchMedia('(max-width:860px)').matches;
@@ -178,6 +180,7 @@ async function entrarApp() {
   nuevoChat();
   ponerPreguntaPedir();
   $('#texto').focus();
+  seguirDespues();
 }
 // «Pregúntale a Elio cuánto pedir» (aviso de stock de Kivo/Logrin): ?pedir=<producto> deja la pregunta lista; la persona toca Enviar.
 function ponerPreguntaPedir() {
@@ -814,7 +817,10 @@ $('#abrir-porque').addEventListener('click', async () => {
 });
 async function abrirResena() {
   $('#menu-usuario').classList.add('oculto'); $('#porque').classList.add('oculto');
-  if (!E.sesion) return pedirCuenta('Crea tu cuenta gratis o inicia sesión para dejar tu reseña.');
+  if (!E.sesion) {   // sin sesión: entra o crea su cuenta con su correo y vuelve directo al formulario
+    try { localStorage.setItem('elio-despues', 'resena'); } catch {}
+    return pedirCuenta('Crea tu cuenta gratis con tu correo o inicia sesión, y te llevamos directo a dejar tu reseña.');
+  }
   $('#resena').classList.remove('oculto');
   const { data } = await sb.from('resenas').select('estrellas,texto,estado').maybeSingle();
   const est = { pendiente: 'Tu reseña está en revisión. Si la cambias, vuelve a revisión.', aprobada: 'Tu reseña está publicada. ¡Gracias! Si la cambias, vuelve a revisión.', rechazada: 'Tu reseña no se publicó (por ejemplo, por datos personales o insultos). Puedes escribirla de nuevo.' };
@@ -823,6 +829,13 @@ async function abrirResena() {
   if (data) { $('#resena-texto').value = data.texto; const r = $(`#resena-form input[value="${data.estrellas}"]`); if (r) r.checked = true; }
 }
 $('#ver-resena').addEventListener('click', abrirResena);
+$('#pie-resena').addEventListener('click', (e) => { e.preventDefault(); abrirResena(); });
+// ?resena (botón «Dejar mi reseña» de flexgogroup.com u otros sitios): abre el formulario, o pide ingresar y vuelve
+try { if (new URLSearchParams(location.search).has('resena')) { localStorage.setItem('elio-despues', 'resena'); history.replaceState(null, '', location.pathname); } } catch {}
+function seguirDespues() {
+  let d = null; try { d = localStorage.getItem('elio-despues'); localStorage.removeItem('elio-despues'); } catch {}
+  if (d === 'resena') abrirResena();
+}
 $('#porque-opinar').addEventListener('click', abrirResena);
 $('#resena-form').addEventListener('submit', async (e) => {
   e.preventDefault();
