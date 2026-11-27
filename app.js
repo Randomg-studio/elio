@@ -1585,7 +1585,20 @@ async function cargarAdmin() {
   ].map(([k, v]) => `<div><b>${esc(v)}</b><small>${k}</small></div>`).join('');
   $('#admin-pagos').innerHTML = (d.pagos || []).length ? d.pagos.map((p) => `<div class="pago-fila"><div><b>${esc(p.nombre || '')}</b> · ${esc(p.email || '')}<br>${NOMBRE_PLAN[p.plan]} · S/ ${Number(p.monto).toFixed(2)} · Operación <b>${esc(p.operacion)}</b> · ${new Date(p.creado).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' })} <span class="estado ${p.estado}">${p.estado}</span></div>
     <div class="acc">${p.estado === 'pendiente' ? `<button class="boton principal" data-ok="${p.id}">Aprobar</button><button class="boton" data-no="${p.id}">Rechazar</button>` : ''}</div></div>`).join('') : '<p class="nota">Todavía no hay pagos.</p>';
-  cargarIntereses(); cargarConsumo(); cargarEncuestaAdmin(); cargarResenasAdmin(); cargarValoracionesAdmin(); cargarSeguridadAdmin();
+  cargarIntereses(); cargarConsumo(); cargarEncuestaAdmin(); cargarResenasAdmin(); cargarValoracionesAdmin(); cargarSeguridadAdmin(); cargarAprendizajeAdmin();
+}
+const NOMBRE_TEMA = { programacion: 'Programación y Excel', negocio: 'Negocio y ventas', estudio: 'Estudios', redaccion: 'Redacción', idiomas: 'Idiomas', salud: 'Salud', legal: 'Legal', finanzas: 'Finanzas', ideas: 'Ideas', otro: 'Otros' };
+async function cargarAprendizajeAdmin() {
+  if (DEMO) return;
+  const r = await sb.rpc('elio_admin_aprendizaje'); if (r.error) { $('#admin-aprendizaje').innerHTML = '<p class="nota">No se pudo cargar.</p>'; return; }
+  const d = r.data || {}, e = d.embudo || {}, pct = (a, b) => b ? Math.round(100 * a / b) + ' %' : '—';
+  const lista = (xs, fn) => (xs || []).map(fn).join(' · ') || '—';
+  $('#admin-aprendizaje').innerHTML = `<p class="nota"><b>Temas más pedidos:</b> ${lista(d.temas, (x) => `${NOMBRE_TEMA[x.clave] || esc(x.clave)} ${x.n}`)}</p>
+    <p class="nota"><b>Motores:</b> ${lista(d.por_motor, (x) => `${MOTORES[x.motor]?.[0] || esc(x.motor)} (${NOMBRE_PLAN[x.plan] || esc(x.plan)}) ${x.n}`)}</p>
+    <p class="nota"><b>Dónde se frena la gente:</b> ${lista(d.topes, (x) => `${esc(x.clave)} (${NOMBRE_PLAN[x.plan] || esc(x.plan)}) ${x.n}`)}</p>
+    <p class="nota"><b>Errores:</b> ${lista(d.errores, (x) => `${esc(x.clave)} ${x.n}`)}</p>
+    <p class="nota"><b>Embudo:</b> ${e.registros || 0} registros · ${e.registros_que_chatearon || 0} llegaron a chatear (${pct(e.registros_que_chatearon, e.registros)}) · ${e.chats || 0} chats, ${e.chats_de_un_mensaje || 0} de un solo mensaje (${pct(e.chats_de_un_mensaje, e.chats)}).</p>
+    <p class="nota">Solo totales por categoría: nunca el texto ni quién lo escribió.</p>`;
 }
 const NOMBRE_EVENTO = { SECRET_BLOCK: 'Claves o datos bancarios tapados', PRIVACY_REDACT: 'Documentos tapados', RATE_LIMIT: 'Ráfagas frenadas', BUSY_LIMIT: 'Mensajes simultáneos frenados', OUTPUT_BLOCK: 'Salidas tapadas', CANARY_LEAK: '⚠️ Intento de sacar instrucciones internas', CRISIS_SUPPORT: 'Apoyo en crisis', FILE_REJECT: 'Archivos rechazados', ACCESS_DENIED: 'Accesos denegados', POLICY_UNAVAILABLE: 'Control no disponible' };
 async function cargarSeguridadAdmin() {
