@@ -8,9 +8,8 @@
 <meta name="theme-color" content="#05070d">
 <link rel="icon" href="img/Elio_Icono-48.png">
 <link rel="apple-touch-icon" href="img/Elio_Icono-180.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="app.css?v=18">
+<link rel="preload" href="fuentes/manrope-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="app.css?v=19">
 </head>
 <body>
 <!-- Iconos (SVG reutilizables) -->
@@ -139,6 +138,7 @@
         <button id="ver-compartir" role="menuitem" hidden>Compartir mi Ultra</button>
         <button id="ver-privacidad" role="menuitem">Privacidad y mis datos</button>
         <a href="terminos.html" target="_blank" role="menuitem">Términos y privacidad</a>
+        <a href="privacidad.html#cookies" target="_blank" role="menuitem">Cookies</a>
         <button id="salir" role="menuitem">Cerrar sesión</button>
       </div>
     </div>
@@ -200,7 +200,7 @@
         <button class="enviar" id="enviar" type="submit" aria-label="Enviar"><svg><use href="#i-enviar"/></svg></button>
       </div>
     </form>
-    <p class="nota-ia"><span id="medidor"></span>Elio puede equivocarse. Revisa la información importante.</p>
+    <p class="nota-ia"><span id="medidor"></span>Elio puede equivocarse. Revisa la información importante. · <a href="privacidad.html#cookies" target="_blank">Cookies</a></p>
   </section>
 </div>
 
@@ -254,21 +254,26 @@
 <div id="porque" class="modal oculto" role="dialog" aria-modal="true" aria-labelledby="porque-t">
   <div class="modal-caja ancha vidrio">
     <button class="icono cerrar" data-cerrar aria-label="Cerrar">✕</button>
-    <h2 id="porque-t">¿Por qué Elio?</h2>
-    <h3>Comparativa de precios</h3>
-    <div class="tabla-comp" role="table" aria-label="Comparativa de precios de los planes de pago">
-      <div class="fila cab" role="row"><span role="columnheader"></span><span role="columnheader">Elio Impulso</span><span role="columnheader">ChatGPT Plus</span><span role="columnheader">Claude Pro</span></div>
-      <div class="fila" role="row"><span role="rowheader">Precio al mes</span><span><b>S/ 56.99</b><small>IGV incluido</small></span><span>US$ 20<small>≈ S/ 75 (a S/ 3.75)</small></span><span>US$ 20<small>≈ S/ 75 (a S/ 3.75)</small></span></div>
-      <div class="fila" role="row"><span role="rowheader">Moneda</span><span>Soles</span><span>Dólares</span><span>Dólares</span></div>
+    <h2 id="porque-t">Elio, ChatGPT y Claude, con datos que puedes comprobar</h2>
+    <p class="nota">No te decimos cuál es más inteligente. Te mostramos el precio, la moneda y lo que cada plan incluye, para que elijas con datos.</p>
+    <div class="tabla-comp" role="table" aria-label="Comparativa de Elio, ChatGPT y Claude">
+      <div class="fila cab" role="row"><span role="columnheader">Dato</span><span role="columnheader">Elio</span><span role="columnheader">ChatGPT Plus</span><span role="columnheader">Claude Pro</span></div>
+      <div class="fila" role="row"><span role="rowheader">Precio al mes</span><span><b>S/ 56.99</b><small>Impulso</small></span><span>US$ 20</span><span>US$ 20<small>US$ 17 al mes si pagas el año</small></span></div>
+      <div class="fila" role="row"><span role="rowheader">Moneda e impuestos</span><span>Soles, IGV incluido</span><span class="unida">Dólares. Según tu país pueden sumarse impuestos, y tu banco aplica su tipo de cambio.</span></div>
+      <div class="fila" role="row"><span role="rowheader">Plan gratis</span><span>Sí, Libre</span><span>Sí</span><span>Sí</span></div>
+      <div class="fila" role="row"><span role="rowheader">Para 2 personas</span><span><b>Ultra S/ 159.99</b><small>al mes en total</small></span><span>Plan Business, desde 2 usuarios<small>precio en su web</small></span><span>Plan Team, desde 2 personas<small>US$ 25 por persona al mes</small></span></div>
+      <div class="fila" role="row"><span role="rowheader">Formas de pago</span><span>Yape</span><span class="unida">Las que indica cada servicio en su web</span></div>
     </div>
-    <p class="nota">Precios mensuales publicados por cada empresa, revisados el 26 de noviembre de 2026 en chatgpt.com/pricing y claude.com/pricing. Pueden cambiar; revisa siempre su web. ChatGPT y Claude son marcas de sus dueños; FlexGo Group no tiene relación con ellos. Elio usa modelos de Anthropic (Claude) para responder.</p>
-    <h3>Lo que trae Elio</h3>
+    <h3>Lo que Elio suma para estudiar y trabajar en Perú</h3>
     <ul class="mejora-lista">
-      <li>🇵🇪 Hecho en Perú, en español, con precios en soles y pago por Yape.</li>
-      <li>⚡ 4 motores (Chispa, Pulso, Órbita y Cumbre) y siempre ves cuántos créditos te quedan.</li>
-      <li>📚 Biblioteca con tus documentos, 📅 Mi día con tus pendientes y 🎓 Trabajos académicos (APA 7, Vancouver e ISO 690).</li>
-      <li>👥 Ultra para 2 personas, cada una con su cuenta y espacio privado.</li>
+      <li>🇵🇪 Pagas en soles con IGV incluido, con Yape dentro de la app.</li>
+      <li>👥 Ultra es para 2 personas, cada una con su cuenta y espacio privado.</li>
+      <li>🎓 Trabajos académicos: citas APA 7, Vancouver e ISO 690 y esquemas de tesis según guías de la USMP, la UPAO y la UCV.</li>
+      <li>📅 Mi día: escribes como hablas y Elio ordena tus tareas, pagos y citas.</li>
+      <li>🔄 Trae tu historial: lleva a Elio lo que ChatGPT, Claude o Gemini saben de ti.</li>
+      <li>💬 Atención de FlexGo Group en español, por WhatsApp.</li>
     </ul>
+    <p class="nota">Comparación al 26/11/2026 con la información pública de cada servicio: chatgpt.com/pricing y claude.com/pricing. Sus precios pueden cambiar. ChatGPT y Claude son marcas de sus dueños; las nombramos solo como referencia.</p>
     <h3>Reseñas reales <small id="porque-prom"></small></h3>
     <div id="porque-resenas" class="b-lista"></div>
     <div class="a-fila fin"><button class="boton principal" type="button" id="porque-opinar">Dejar mi reseña</button></div>
@@ -504,8 +509,13 @@
   </div>
 </div>
 
+<div id="aviso-cookies" class="aviso-cookies vidrio" role="region" aria-label="Aviso de cookies" hidden>
+  <p>Usamos solo el almacenamiento necesario para que Elio funcione (tu sesión y tus preferencias). No usamos cookies de publicidad ni de analítica.</p>
+  <div><a class="boton" href="privacidad.html#cookies" target="_blank">Más información</a><button class="boton principal" type="button" id="cookies-ok">Entendido</button></div>
+</div>
+
 <div id="toast" role="status"></div>
 <script src="config.js?v=1"></script>
-<script type="module" src="app.js?v=22"></script>
+<script type="module" src="app.js?v=23"></script>
 </body>
 </html>

@@ -388,6 +388,14 @@ $$('[data-activar-prueba]').forEach((b) => b.addEventListener('click', async () 
   cargarEstado();
 }));
 
+// ---------- Aviso de cookies (solo almacenamiento necesario; se muestra una vez) ----------
+(() => {
+  let visto = null; try { visto = localStorage.getItem('flexgo-aviso-cookies'); } catch (e) {}
+  if (visto === 'v1') return;
+  $('#aviso-cookies').hidden = false;
+  $('#cookies-ok').addEventListener('click', () => { try { localStorage.setItem('flexgo-aviso-cookies', 'v1'); } catch (e) {} $('#aviso-cookies').hidden = true; });
+})();
+
 // ---------- ¿Por qué Elio? Comparativa y reseñas reales ----------
 const estrellasTxt = (n) => '★'.repeat(Math.round(n)) + '☆'.repeat(5 - Math.round(n));
 async function leerResenas() {
