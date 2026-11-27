@@ -281,6 +281,7 @@ function burbujaElio() {
         const acc = document.createElement('div'); acc.className = 'acciones';
         acc.innerHTML = '<button data-a="copiar">📋 Copiar</button>';
         acc.querySelector('button').onclick = () => navigator.clipboard.writeText(t).then(() => toast('Copiado ✔'));
+        if (mid && !E.invitado && !DEMO) acc.append(botonesValorar(mid));
         if (mid && E.cred?.plan === 'ultra') {
           const r = document.createElement('button'); r.textContent = '🌿 Rama desde aquí'; r.title = 'Copia el chat hasta esta respuesta para probar otro camino (máximo 5 ramas por chat)';
           r.onclick = () => crearRama(mid); acc.append(r);
@@ -294,6 +295,37 @@ function burbujaElio() {
       else if (reintentar) { const b = document.createElement('button'); b.className = 'boton'; b.textContent = 'Reintentar'; b.onclick = () => { d.remove(); reintentar(); }; cuerpo.querySelector('.error-msg').append(document.createElement('br'), b); }
     },
   };
+}
+
+// «¿Te sirvió?»: Buena / Regular / Mala y un motivo opcional. Se guarda solo la valoración, el motivo, el motor y la fecha.
+const MOTIVOS_VALOR = ['Tenía errores', 'Incompleta', 'Muy larga', 'No entendió mi pregunta', 'Otro'];
+function botonesValorar(mid) {
+  const caja = document.createElement('span'); caja.className = 'valorar';
+  caja.innerHTML = '<small>¿Te sirvió?</small><button data-v="buena" title="Buena">👍 Buena</button><button data-v="regular" title="Regular">😐 Regular</button><button data-v="mala" title="Mala">👎 Mala</button>';
+  caja.addEventListener('click', async (e) => {
+    const v = e.target.closest('button')?.dataset.v; if (!v) return;
+    const { error } = await sb.rpc('elio_valorar', { m: mid, valor: v, motivo: null });
+    if (error) return toast('No se pudo guardar. Inténtalo de nuevo.');
+    caja.querySelectorAll('button').forEach((b) => b.classList.toggle('activo', b.dataset.v === v));
+    caja.querySelector('.motivo-valor')?.remove();
+    if (v === 'buena') return toast('¡Gracias! 💙');
+    const m = document.createElement('span'); m.className = 'motivo-valor';
+    m.innerHTML = `<small>¿Qué faltó? (opcional, sin datos personales)</small>${MOTIVOS_VALOR.map((x) => `<button type="button" data-m="${x}">${x}</button>`).join('')}<input maxlength="200" placeholder="Cuéntanos en pocas palabras" aria-label="Motivo"><button type="button" data-enviar>Enviar</button>`;
+    let elegido = '';
+    m.addEventListener('click', async (ev) => {
+      const b = ev.target.closest('button'); if (!b) return;
+      if (b.dataset.m) { elegido = b.dataset.m; m.querySelectorAll('[data-m]').forEach((x) => x.classList.toggle('activo', x === b)); return; }
+      if (b.dataset.enviar !== undefined) {
+        const extra = m.querySelector('input').value.trim();
+        const motivo = [elegido, extra].filter(Boolean).join(': ').slice(0, 200) || null;
+        const { error: err } = await sb.rpc('elio_valorar', { m: mid, valor: v, motivo });
+        if (err) return toast('No se pudo guardar. Inténtalo de nuevo.');
+        m.remove(); toast('¡Gracias! Nos ayuda a mejorar Elio 💙');
+      }
+    });
+    caja.append(m);
+  });
+  return caja;
 }
 
 const ES_RECORDATORIO = /^\s*(recu[eé]rdame|recordarme|recu[eé]rdales?|an[oó]tame|anota en mi d[ií]a|agrega a mi d[ií]a)\b/i;
@@ -340,7 +372,7 @@ async function enviar(texto, adjunto) {
       if (j.codigo === 'proyecto_cerrado') abrirProyectos();
       return;
     }
-    const lector = r.body.getReader(), dec = new TextDecoder(); let buf = '', fallo = null;
+    const lector = r.body.getReader(), dec = new TextDecoder(); let buf = '', fallo = null, midNuevo = null;
     while (true) {
       const { value, done } = await lector.read(); if (done) break;
       buf += dec.decode(value, { stream: true });
@@ -359,9 +391,10 @@ async function enviar(texto, adjunto) {
         if (ev.tipo === 'invitado') { E.restantes = ev.restantes; guardarRestantes(); pintarRestantes(); }
         if (ev.tipo === 'creditos' && ev.estado) { E.cred = ev.estado; pintarCreditos(); if (ev.usados > ev.minimo) toast(`Este mensaje usó ${ev.usados} créditos porque la conversación o el documento son largos. Un chat nuevo gasta menos.`); }
         if (ev.tipo === 'error') fallo = ev.mensaje;
+        if (ev.tipo === 'mid') midNuevo = ev.id;
       }
     }
-    if (fallo && !acumulado) b.error(fallo, () => enviar(texto, adjunto)); else b.pintar(acumulado || '…', true);
+    if (fallo && !acumulado) b.error(fallo, () => enviar(texto, adjunto)); else b.pintar(acumulado || '…', true, midNuevo);
     if (E.invitado) {
       if (acumulado) E.historialInv.push({ rol: 'user', contenido: texto }, { rol: 'assistant', contenido: acumulado });
       if (E.restantes <= 0) setTimeout(() => pedirCuenta('¿Te gustó? Crea tu cuenta gratis para seguir conversando con Elio: 10 créditos cada 5 horas, 3 mensajes con Órbita a la semana y tu historial guardado.'), 1800);
@@ -1448,7 +1481,16 @@ async function cargarAdmin() {
   ].map(([k, v]) => `<div><b>${esc(v)}</b><small>${k}</small></div>`).join('');
   $('#admin-pagos').innerHTML = (d.pagos || []).length ? d.pagos.map((p) => `<div class="pago-fila"><div><b>${esc(p.nombre || '')}</b> · ${esc(p.email || '')}<br>${NOMBRE_PLAN[p.plan]} · S/ ${Number(p.monto).toFixed(2)} · Operación <b>${esc(p.operacion)}</b> · ${new Date(p.creado).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' })} <span class="estado ${p.estado}">${p.estado}</span></div>
     <div class="acc">${p.estado === 'pendiente' ? `<button class="boton principal" data-ok="${p.id}">Aprobar</button><button class="boton" data-no="${p.id}">Rechazar</button>` : ''}</div></div>`).join('') : '<p class="nota">Todavía no hay pagos.</p>';
-  cargarIntereses(); cargarConsumo(); cargarEncuestaAdmin(); cargarResenasAdmin();
+  cargarIntereses(); cargarConsumo(); cargarEncuestaAdmin(); cargarResenasAdmin(); cargarValoracionesAdmin();
+}
+async function cargarValoracionesAdmin() {
+  if (DEMO) return;
+  const r = await sb.rpc('elio_admin_valoraciones'); if (r.error) { $('#admin-valoraciones').innerHTML = '<p class="nota">No se pudo cargar.</p>'; return; }
+  const d = r.data || {}, pv = d.por_valor || {}, t = d.total || 0, pct = (n) => t ? Math.round(100 * (n || 0) / t) + ' %' : '—';
+  $('#admin-valoraciones').innerHTML = `<p class="nota">${t} valoraciones · 👍 ${pv.buena || 0} (${pct(pv.buena)}) · 😐 ${pv.regular || 0} (${pct(pv.regular)}) · 👎 ${pv.mala || 0} (${pct(pv.mala)})</p>
+    <div class="tabla-int"><div class="fila cab"><span>Motor</span><span>👍</span><span>😐</span><span>👎</span></div>
+    ${(d.por_motor || []).map((x) => `<div class="fila"><span>${MOTORES[x.motor]?.[0] || esc(x.motor || '—')}</span><span>${x.buenas}</span><span>${x.regulares}</span><span>${x.malas}</span></div>`).join('') || '<div class="fila"><span>Sin valoraciones todavía</span></div>'}</div>
+    ${(d.motivos || []).length ? '<p class="nota"><b>Motivos recientes (Regular y Mala):</b></p>' + d.motivos.map((x) => `<p class="nota">${x.valor === 'mala' ? '👎' : '😐'} ${MOTORES[x.motor]?.[0] || ''} · ${esc(x.motivo)}</p>`).join('') : ''}`;
 }
 async function cargarResenasAdmin() {
   if (DEMO) return;

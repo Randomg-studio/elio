@@ -491,3 +491,12 @@ body.es-invitado .enc-vincular{display:none}
 @media(max-width:640px){.inv-fila{grid-template-columns:1fr 1fr}.inv-fila label:first-child{grid-column:1/-1}}
 #cam-video{width:100%;border-radius:12px;background:#000;max-height:60vh}
 #inv-subir-btn{cursor:pointer}
+
+/* «¿Te sirvió?» */
+.valorar{display:inline-flex;flex-wrap:wrap;align-items:center;gap:6px;margin-left:8px}
+.valorar small,.motivo-valor small{opacity:.75}
+.valorar button,.motivo-valor button{font-size:12px;padding:3px 8px;border-radius:999px}
+.valorar button.activo,.motivo-valor button.activo{outline:2px solid var(--acento,#00C6EB)}
+.motivo-valor{display:flex;flex-wrap:wrap;gap:6px;align-items:center;width:100%;margin-top:6px}
+.motivo-valor input{flex:1;min-width:160px;font-size:13px;padding:5px 8px;border-radius:8px}
+.acciones{flex-wrap:wrap;align-items:center}

@@ -513,10 +513,12 @@ Deno.serve(async (req) => {
         }
         if (parada === "refusal" && !respuesta) alTexto("Prefiero no ayudar con eso. ¿Te ayudo con otra cosa?");
         if (parada === "max_tokens") enviar({ tipo: "aviso", t: "La respuesta llegó al límite de largo. Escribe «continúa» para seguir." });
-        await admin.from("mensajes").insert([
+        const { data: guardados } = await admin.from("mensajes").insert([
           { conversacion: convId, usuario: user.id, rol: "user", contenido: texto || (docNuevo ? `(documento: ${docNuevo.nombre})` : "(archivo)"), nivel, adjunto: docNuevo?.nombre ?? cuerpo.adjunto?.nombre ?? null },
-          { conversacion: convId, usuario: user.id, rol: "assistant", contenido: respuesta || "…", nivel },
-        ]);
+          { conversacion: convId, usuario: user.id, rol: "assistant", contenido: respuesta || "…", nivel, motor },
+        ]).select("id,rol");
+        const idRespuesta = (guardados ?? []).find((x) => x.rol === "assistant")?.id;
+        if (idRespuesta && respuesta) enviar({ tipo: "mid", id: idRespuesta });   // para «¿Te sirvió?» y las ramas
         await admin.from("conversaciones").update({ actualizado: new Date().toISOString() }).eq("id", convId);
         await admin.rpc("elio_sumar_uso", { u: user.id, nivel: "costo", costo, es_libre: plan === "libre" }); // solo suma el costo
         const usados = respuesta ? creditosDe(motor, costo) : 0;   // créditos REALES de este mensaje
