@@ -243,7 +243,7 @@ function herramientasLogrin(usuario: string, enlaceId: string): Herramientas {
       }
       if (j.ok !== true) return { ok: false, motivo: corto(j.motivo, 30) || "error" };
       const fuera: Record<string, unknown> = { ok: true, que };
-      for (const c of ["total", "n_ventas", "moneda", "permisos", "producto", "unidad", "stock", "minimo", "ultima_compra", "dias_entrega"]) if (j[c] !== undefined) fuera[c] = j[c];
+      for (const c of ["total", "n_ventas", "moneda", "permisos", "producto", "unidad", "stock", "minimo", "dias", "ultima_compra", "dias_entrega"]) if (j[c] !== undefined) fuera[c] = j[c];
       if (Array.isArray(j.items)) fuera.items = j.items.slice(0, 30);
       if (Array.isArray(j.ventas)) fuera.ventas = j.ventas.slice(-90);
       return fuera;

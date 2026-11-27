@@ -187,7 +187,9 @@ function ponerPreguntaPedir() {
   const producto = String(p).replace(/[<>\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80);
   if (location.search.includes('pedir=')) history.replaceState(null, '', location.pathname);
   if (!producto) return;
-  $('#texto').value = `¿Cuánto debo pedir de «${producto}» y cada cuánto? Revisa mis ventas y mi stock en Logrin. Dime también qué productos se mueven poco.`;
+  $('#texto').value = /por reponer/i.test(producto)
+    ? '¿Qué productos debo reponer y cuánto pedir de cada uno? Revisa mi stock y mis ventas en Logrin. Dime también qué se mueve poco.'
+    : `¿Cuánto debo pedir de «${producto}» y cada cuánto? Revisa mis ventas y mi stock en Logrin. Dime también qué productos se mueven poco.`;
   $('#texto').dispatchEvent(new Event('input', { bubbles: true }));
 }
 // «Elio para Logrin»: una vez cada 6 h pregunta si el negocio sigue con su plan (el servidor decide si llama a Logrin)
