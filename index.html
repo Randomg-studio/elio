@@ -9,7 +9,7 @@
 <link rel="icon" href="img/Elio_Icono-48.png">
 <link rel="apple-touch-icon" href="img/Elio_Icono-180.png">
 <link rel="preload" href="fuentes/manrope-latin.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="app.css?v=19">
+<link rel="stylesheet" href="app.css?v=20">
 </head>
 <body>
 <!-- Iconos (SVG reutilizables) -->
@@ -114,7 +114,7 @@
       <button id="m-herramientas"><svg><use href="#i-cuadros"/></svg>Mi día<em class="nuevo">Nuevo</em></button>
       <button id="m-biblioteca"><svg><use href="#i-capas"/></svg>Biblioteca<em class="nuevo">Nuevo</em></button>
       <button id="m-academico"><svg><use href="#i-lapiz"/></svg>Trabajos académicos<em class="nuevo">Nuevo</em></button>
-      <button data-pronto="Mis proyectos"><svg><use href="#i-carpeta"/></svg>Mis proyectos<em>Pronto</em></button>
+      <button id="ver-proyectos"><svg><use href="#i-carpeta"/></svg>Mis proyectos<em>Ultra</em></button>
     </nav>
     <div class="lat-recientes">
       <p class="lat-titulo">Conversaciones recientes</p>
@@ -223,7 +223,7 @@
       </article>
       <article class="tarjeta" data-plan="ultra">
         <h3>Ultra</h3><p class="precio">S/ 159.99<small>/mes · IGV incluido</small></p>
-        <ul><li><b>Para 2 personas</b>, cada una con su cuenta y espacio privado</li><li>Los 4 motores, incluido 🏔️ Cumbre (el más potente)</li><li>150 créditos cada 5 horas · 780 por semana (75 y 390 por persona si lo compartes)</li><li>Documentos largos y análisis</li><li>Hasta 4 dispositivos (2 por persona)</li></ul>
+        <ul><li><b>Para 2 personas</b>, cada una con su cuenta y espacio privado</li><li>Los 4 motores, incluido 🏔️ Cumbre (el más potente)</li><li>150 créditos cada 5 horas · 780 por semana (75 y 390 por persona si lo compartes)</li><li>Documentos largos y análisis</li><li>Mis proyectos con contraseña (10 chats cada uno) y ramas</li><li>Hasta 4 dispositivos (2 por persona)</li></ul>
         <button class="boton principal" data-comprar="ultra">Elegir Ultra</button>
       </article>
     </div>
@@ -248,6 +248,69 @@
     <p class="aviso" id="pago-aviso"></p>
     <button class="boton principal grande" type="submit"><span>Ya yapeé · Enviar</span></button>
   </form>
+</div>
+
+<!-- Mis proyectos (Ultra) -->
+<div id="proyectos" class="modal oculto" role="dialog" aria-modal="true" aria-labelledby="proy-t">
+  <div class="modal-caja vidrio">
+    <button class="icono cerrar" data-cerrar aria-label="Cerrar">✕</button>
+    <h2 id="proy-t">Mis proyectos</h2>
+    <section id="proy-lista-vista">
+      <p class="nota">Agrupa hasta 10 chats por proyecto y, si quieres, protégelo con su propia contraseña. Al abrirlo queda abierto 30 minutos.</p>
+      <div id="proy-lista" class="b-lista"></div>
+      <div class="a-fila fin"><button class="boton principal" type="button" id="proy-nuevo">Nuevo proyecto</button></div>
+    </section>
+    <section id="proy-sin-ultra" hidden>
+      <p class="nota">Mis proyectos es parte del plan <b>Ultra</b>: hasta 20 proyectos con 10 chats cada uno, contraseña por proyecto y ramas para probar otros caminos en un chat.</p>
+      <div class="a-fila fin"><button class="boton principal" type="button" id="proy-ver-planes">Ver planes</button></div>
+    </section>
+    <form id="proy-crear" hidden autocomplete="off">
+      <h3 id="proy-crear-t">Nuevo proyecto</h3>
+      <input id="proy-nombre" class="campo-simple" maxlength="60" required placeholder="Nombre del proyecto (por ejemplo: Tesis)">
+      <textarea id="proy-desc" class="campo-simple" rows="2" maxlength="300" placeholder="Descripción (opcional)"></textarea>
+      <label class="check" id="proy-quitar-fila" hidden><input type="checkbox" id="proy-quitar"> Quitar la contraseña</label>
+      <p class="nota" id="proy-clave-nota">Contraseña del proyecto (opcional, mínimo 8 caracteres). Es distinta a la de tu cuenta.</p>
+      <label class="campo"><svg><use href="#i-candado"/></svg><input id="proy-clave" name="clave" type="password" minlength="8" autocomplete="new-password" placeholder="Contraseña del proyecto (opcional)" aria-label="Contraseña del proyecto (opcional)"><button type="button" class="ojo" aria-label="Mostrar contraseña"><svg><use href="#i-ojo-no"/></svg></button></label>
+        <div class="fuerza" aria-live="polite"><div class="fuerza-barra"><i></i></div><small></small></div>
+      <div class="a-fila fin"><button class="boton" type="button" data-proy-volver>Volver</button><button class="boton principal" type="submit">Guardar</button></div>
+    </form>
+    <form id="proy-abrir" hidden autocomplete="off">
+      <h3>🔒 <span id="proy-abrir-nombre"></span></h3>
+      <p class="nota" id="proy-abrir-msg">Escribe la contraseña de este proyecto.</p>
+      <label class="campo"><svg><use href="#i-candado"/></svg><input id="proy-abrir-clave" name="clave" type="password" minlength="8" autocomplete="current-password" required placeholder="Contraseña del proyecto" aria-label="Contraseña del proyecto"><button type="button" class="ojo" aria-label="Mostrar contraseña"><svg><use href="#i-ojo-no"/></svg></button></label>
+      <div class="a-fila fin"><button class="boton" type="button" id="proy-olvide">Olvidé la contraseña</button><button class="boton" type="button" data-proy-volver>Volver</button><button class="boton principal" type="submit">Abrir</button></div>
+    </form>
+    <form id="proy-recuperar" hidden autocomplete="off">
+      <h3>Cambiar la contraseña del proyecto</h3>
+      <p class="nota">Te enviamos un código de 6 números a tu correo. Vale 15 minutos.</p>
+      <input id="proy-codigo" class="campo-simple" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required placeholder="Código de 6 números">
+      <label class="campo"><svg><use href="#i-candado"/></svg><input id="proy-nueva" name="clave" type="password" minlength="8" autocomplete="new-password" required placeholder="Nueva contraseña del proyecto" aria-label="Nueva contraseña del proyecto"><button type="button" class="ojo" aria-label="Mostrar contraseña"><svg><use href="#i-ojo-no"/></svg></button></label>
+        <div class="fuerza" aria-live="polite"><div class="fuerza-barra"><i></i></div><small></small></div>
+      <div class="a-fila fin"><button class="boton" type="button" data-proy-volver>Volver</button><button class="boton principal" type="submit">Cambiar y abrir</button></div>
+    </form>
+    <section id="proy-vista" hidden>
+      <h3>📁 <span id="proy-vista-nombre"></span></h3>
+      <p class="nota" id="proy-vista-desc"></p>
+      <p class="nota aviso-tope" id="proy-tope" hidden></p>
+      <div id="proy-chats" class="b-lista"></div>
+      <div class="a-fila fin envuelve">
+        <button class="boton" type="button" data-proy-volver>Volver</button>
+        <button class="boton" type="button" id="proy-editar">Editar</button>
+        <button class="boton" type="button" id="proy-cerrar-llave" hidden>🔒 Cerrar ahora</button>
+        <button class="boton" type="button" id="proy-borrar">Borrar</button>
+        <button class="boton principal" type="button" id="proy-chat-nuevo">Nuevo chat aquí</button>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- Opciones de un chat -->
+<div id="menu-chat" class="menu-chat vidrio oculto" role="menu">
+  <button data-op="fijar" role="menuitem">📌 Fijar arriba</button>
+  <button data-op="mover" role="menuitem">📁 Mover a un proyecto</button>
+  <button data-op="sacar" role="menuitem" hidden>↩️ Sacar del proyecto</button>
+  <button data-op="descargar" role="menuitem">⬇️ Descargar</button>
+  <button data-op="borrar" role="menuitem" class="peligro">🗑️ Borrar</button>
 </div>
 
 <!-- Por qué Elio: comparativa y reseñas reales -->
@@ -516,6 +579,6 @@
 
 <div id="toast" role="status"></div>
 <script src="config.js?v=1"></script>
-<script type="module" src="app.js?v=23"></script>
+<script type="module" src="app.js?v=24"></script>
 </body>
 </html>

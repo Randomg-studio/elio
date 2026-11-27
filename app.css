@@ -464,3 +464,19 @@ body.es-invitado .enc-vincular{display:none}
 @media(max-width:560px){.aviso-cookies{flex-direction:column;align-items:stretch}.aviso-cookies div{justify-content:flex-end}}
 .tabla-comp .fila span.unida{grid-column:span 2}
 .nota-ia a{color:inherit}
+
+/* v20: Mis proyectos, ramas, fijar y menú de chat */
+.campo-simple{width:100%;box-sizing:border-box;background:rgba(255,255,255,.05);border:1px solid var(--linea);border-radius:12px;color:var(--texto);padding:9px 12px;font:inherit;font-size:14px;margin:6px 0;resize:vertical}
+#proyectos section[hidden],#proyectos form[hidden],#proyectos [hidden]{display:none}
+.proy-item{display:block;width:100%;text-align:left;color:var(--texto);font:inherit;cursor:pointer}
+.proy-item:hover{border-color:var(--cian)}
+.proy-chat{display:flex}
+.aviso-tope{color:#ffc94a}
+.a-fila.envuelve{flex-wrap:wrap}
+.menu-chat{position:fixed;z-index:80;display:grid;min-width:210px;padding:6px;border-radius:14px}
+.menu-chat.oculto{display:none}
+.menu-chat button{background:none;border:0;color:var(--texto);font:inherit;font-size:13.5px;text-align:left;padding:8px 10px;border-radius:10px;cursor:pointer}
+.menu-chat button:hover{background:rgba(255,255,255,.06)}
+.menu-chat button[hidden]{display:none}
+.menu-chat .peligro{color:var(--rojo)}
+.chat-item .pin{font-size:13px;width:18px;flex:none}
