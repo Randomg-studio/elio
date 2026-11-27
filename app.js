@@ -211,17 +211,17 @@ async function revisarMejora() {
   E.mejora = m;
   if (m.plan !== 'libre' || (m.acepto && m.version === MEJORA_VERSION)) return;
   if (E.sesion?.user?.user_metadata?.mejora === MEJORA_VERSION) { await sb.rpc('elio_aceptar_mejora', { version: MEJORA_VERSION }); E.mejora.acepto = true; E.mejora.version = MEJORA_VERSION; return; }
-  $('#mejora').classList.remove('oculto');
+  $('#aviso-mejora').classList.remove('oculto');
 }
-$('#mejora-form').addEventListener('submit', async (e) => {
+$('#aviso-mejora-form').addEventListener('submit', async (e) => {
   e.preventDefault();
-  if (!$('#mejora-ok').checked) return toast('Marca la casilla para continuar con el plan gratis.');
+  if (!$('#aviso-mejora-ok').checked) return toast('Marca la casilla para continuar con el plan gratis.');
   const { error } = await sb.rpc('elio_aceptar_mejora', { version: MEJORA_VERSION });
   if (error) return toast('No se pudo guardar. Inténtalo de nuevo.');
   if (E.mejora) { E.mejora.acepto = true; E.mejora.version = MEJORA_VERSION; }
-  $('#mejora').classList.add('oculto'); toast('Listo ✔ Gracias por ayudarnos a mejorar Elio.');
+  $('#aviso-mejora').classList.add('oculto'); toast('Listo ✔ Gracias por ayudarnos a mejorar Elio.');
 });
-$('#mejora-planes').addEventListener('click', () => { $('#mejora').classList.add('oculto'); abrirPlanes(); });
+$('#aviso-mejora-planes').addEventListener('click', () => { $('#aviso-mejora').classList.add('oculto'); abrirPlanes(); });
 async function cargarEstado() {
   if (sb) { const { data } = await sb.rpc('elio_mi_estado'); E.estado = data; }
   const s = E.estado; if (!s) return;
@@ -449,7 +449,7 @@ async function enviar(texto, adjunto) {
       if (j.mejora || j.codigo === 'tope_libre') abrirMejora(j.mensaje);
       if (j.codigo === 'dispositivo') abrirDispositivos(j.mensaje);
       if (j.codigo === 'proyecto_cerrado') abrirProyectos();
-      if (j.codigo === 'mejora') $('#mejora').classList.remove('oculto');
+      if (j.codigo === 'mejora') $('#aviso-mejora').classList.remove('oculto');
       return;
     }
     const lector = r.body.getReader(), dec = new TextDecoder(); let buf = '', fallo = null, midNuevo = null;
