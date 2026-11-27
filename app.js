@@ -204,7 +204,6 @@ async function cargarEstado() {
   $('#ver-compartir').hidden = !(E.cred?.titular_ultra || E.cred?.compartido);
   $('#prueba-planes').classList.toggle('oculto', !E.cred?.prueba_disponible);
   $('#mejora-prueba-nota').classList.toggle('oculto', !E.cred?.prueba_disponible);
-  $('.adjuntar').style.opacity = s.plan === 'libre' ? 0.5 : 1;
   const h = new Date().getHours();
   $('#saludo').textContent = `${h < 12 ? 'Buenos días' : h < 19 ? 'Buenas tardes' : 'Buenas noches'}${s.nombre ? ', ' + s.nombre.split(' ')[0] : ''}. Soy tu asistente de inteligencia artificial para crear, analizar y potenciar tus ideas.`;
 }
@@ -873,8 +872,9 @@ $('#m-inicio').addEventListener('click', () => { nuevoChat(); });
 $('#archivo').addEventListener('change', async (e) => {
   const f = e.target.files[0]; e.target.value = ''; if (!f) return;
   if (E.invitado) return pedirCuenta('Crea tu cuenta para subir archivos.');
-  if ((E.estado?.plan || 'libre') === 'libre') { toast('Subir archivos está en los planes Impulso y Ultra.'); return abrirPlanes(); }
   if (f.size > 10 * 1024 * 1024) return toast('El archivo pesa más de 10 MB.');
+  if (f.type.startsWith('image/')) return adjuntarFoto(f, f.name);
+  if ((E.estado?.plan || 'libre') === 'libre') { toast('En el plan Libre puedes subir fotos (3 por semana). Los PDF están en Impulso y Ultra.'); return abrirPlanes(); }
   if (f.type === 'application/pdf') {
     // Modo MarkItDown: el PDF se convierte a texto UNA vez y se guarda en tu Biblioteca; en el chat solo viajan los fragmentos que sirven.
     $('#adjunto-nombre').textContent = '📎 Leyendo ' + f.name + '…'; $('#adjunto-vista').classList.remove('oculto');
@@ -893,6 +893,32 @@ $('#archivo').addEventListener('change', async (e) => {
   $('#adjunto-nombre').textContent = '📎 ' + f.name; $('#adjunto-vista').classList.remove('oculto');
 });
 function quitarAdjunto() { E.adjunto = null; $('#adjunto-vista').classList.add('oculto'); }
+// Fotos: se achican en el navegador (1600 px, JPG) antes de subir. En Libre: 3 por semana y máximo 2 MB.
+async function adjuntarFoto(blob, nombre) {
+  if (!blob) return;
+  if (E.invitado) return pedirCuenta('Crea tu cuenta gratis para subir fotos.');
+  const libre = (E.estado?.plan || 'libre') === 'libre';
+  let quedan = null;
+  if (libre && sb && !DEMO) {
+    const { data } = await sb.rpc('elio_mis_fotos_libre');
+    quedan = typeof data === 'number' ? data : null;
+    if (quedan === 0) { toast('Ya usaste tus 3 fotos gratis de esta semana. Vuelven el lunes, o pasa a Impulso.'); return abrirPlanes(); }
+  }
+  try {
+    const gif = blob.type === 'image/gif' && !libre;
+    const f = gif ? null : await achicarFoto(blob);
+    const datos = gif ? await new Promise((ok, mal) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1]); r.onerror = mal; r.readAsDataURL(blob); }) : f.base64;
+    if (libre && datos.length > 2_800_000) return toast('La foto es muy pesada para el plan Libre (máximo 2 MB).');
+    const nom = String(nombre || 'foto.jpg').replace(/\.[a-z0-9]+$/i, '') + (gif ? '.gif' : '.jpg');
+    E.adjunto = { tipo: gif ? 'image/gif' : 'image/jpeg', nombre: nom.slice(0, 100), datos };
+    $('#adjunto-nombre').textContent = '📎 ' + nom + (quedan !== null ? ` · fotos gratis esta semana: ${quedan} de 3 (esta usa 1)` : '');
+    $('#adjunto-vista').classList.remove('oculto');
+  } catch (err) { toast(err.message || 'No se pudo leer la foto.'); }
+}
+$('#b-camara').addEventListener('click', async () => {
+  if (E.invitado) return pedirCuenta('Crea tu cuenta gratis para tomar fotos.');
+  adjuntarFoto(await tomarFoto(), 'foto-camara');
+});
 $('#quitar-adjunto').addEventListener('click', quitarAdjunto);
 
 function guardarRestantes() { try { localStorage.setItem('elio_restantes_' + new Date().toDateString(), String(E.restantes)); } catch (e) {} }

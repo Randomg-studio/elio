@@ -30,7 +30,7 @@
     <symbol id="i-barras" viewBox="0 0 24 24"><path d="M5 20V12M12 20V5M19 20v-9"/></symbol>
     <symbol id="i-foco" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9V16h7v-2.1A6 6 0 0 0 12 3Z"/></symbol>
     <symbol id="i-mas" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
-    <symbol id="i-clip" viewBox="0 0 24 24"><path d="m21 11-8.5 8.5a5 5 0 0 1-7-7L14 4a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L15 7"/></symbol>
+    <symbol id="i-camara" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/></symbol><symbol id="i-clip" viewBox="0 0 24 24"><path d="m21 11-8.5 8.5a5 5 0 0 1-7-7L14 4a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L15 7"/></symbol>
     <symbol id="i-mundo" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></symbol>
     <symbol id="i-micro" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></symbol>
     <symbol id="i-enviar" viewBox="0 0 24 24"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4Z"/></symbol>
@@ -193,7 +193,8 @@
             <button type="button" data-motor="cumbre" role="menuitemradio"><b>🏔️ Cumbre</b><small>El más potente · 25 créditos · Ultra</small></button>
           </div>
         </div>
-        <label class="icono cuadro adjuntar" title="Subir imagen o PDF (Impulso y Ultra)" aria-label="Subir archivo"><svg><use href="#i-clip"/></svg><input type="file" id="archivo" accept="image/png,image/jpeg,image/webp,image/gif,application/pdf" hidden></label>
+        <label class="icono cuadro adjuntar" title="Subir foto o PDF (en Libre: 3 fotos por semana)" aria-label="Subir archivo"><svg><use href="#i-clip"/></svg><input type="file" id="archivo" accept="image/png,image/jpeg,image/webp,image/gif,application/pdf" hidden></label>
+        <button type="button" class="icono cuadro" id="b-camara" title="Tomar una foto" aria-label="Tomar una foto"><svg><use href="#i-camara"/></svg></button>
         <span class="chip" id="chip-modo"><svg><use href="#i-rayo"/></svg><span id="modo-txt">Chispa</span></span>
         <button type="button" class="chip pronto" data-pronto="Buscar en la web"><svg><use href="#i-mundo"/></svg>Buscar en la web<em>Pronto</em></button>
         <span class="espacio"></span>
@@ -213,13 +214,13 @@
     <div class="tarjetas">
       <article class="tarjeta" data-plan="libre">
         <h3>Libre</h3><p class="precio">S/ 0</p>
-        <ul><li>⚡ Chispa · 🪐 3 mensajes con Órbita gratis a la semana</li><li>10 créditos cada 5 horas · 40 por semana</li><li>Historial de chats, Mi día, Biblioteca (3 documentos) y 10 referencias</li><li>1 persona · hasta 2 dispositivos</li></ul>
+        <ul><li>⚡ Chispa · 🪐 3 mensajes con Órbita gratis a la semana</li><li>10 créditos cada 5 horas · 40 por semana</li><li>📷 3 fotos por semana en el chat</li><li>Historial de chats, Mi día, Biblioteca (3 documentos) y 10 referencias</li><li>1 persona · hasta 2 dispositivos</li></ul>
         <button class="boton" disabled>Tu plan base</button>
       </article>
       <article class="tarjeta destacada" data-plan="impulso">
         <span class="cinta">Más elegido</span>
         <h3>Impulso</h3><p class="precio">S/ 56.99<small>/mes · IGV incluido</small></p>
-        <ul><li>⚡ Chispa · 💡 Pulso · 🪐 Órbita</li><li>60 créditos cada 5 horas · 340 por semana</li><li>Sube PDF e imágenes</li><li>Resumen de Mi día por correo y Biblioteca amplia</li><li>1 persona · hasta 3 dispositivos</li></ul>
+        <ul><li>⚡ Chispa · 💡 Pulso · 🪐 Órbita</li><li>60 créditos cada 5 horas · 340 por semana</li><li>Sube PDF y fotos (y toma fotos con la cámara)</li><li>Resumen de Mi día por correo y Biblioteca amplia</li><li>1 persona · hasta 3 dispositivos</li></ul>
         <button class="boton principal" data-comprar="impulso">Elegir Impulso</button>
       </article>
       <article class="tarjeta" data-plan="ultra">
@@ -438,7 +439,7 @@
     <ul class="mejora-lista">
       <li>⚡ <b>6 veces más créditos</b>: 60 cada 5 horas y 340 por semana</li>
       <li>💡 Pulso y 🪐 Órbita cuando quieras</li>
-      <li>📎 Sube PDF e imágenes en el chat</li>
+      <li>📎 Sube PDF y fotos en el chat, dentro de tus créditos</li>
       <li>📚 Biblioteca amplia y resumen de Mi día por correo</li>
     </ul>
     <div class="a-fila fin"><button class="boton" type="button" id="mejora-planes">Ver planes</button><button class="boton principal oculto" type="button" data-activar-prueba>Probar Impulso 3 días gratis</button></div>
@@ -627,6 +628,6 @@
 
 <div id="toast" role="status"></div>
 <script src="config.js?v=1"></script>
-<script type="module" src="app.js?v=26"></script>
+<script type="module" src="app.js?v=27"></script>
 </body>
 </html>
