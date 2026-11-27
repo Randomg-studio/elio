@@ -5,8 +5,7 @@
 //   { accion: "revocar" }                      → quita el enlace (aquí y en Logrin)
 //   { accion: "leer_foto", imagen, tipo }      → la IA lee la foto y arma una lista PROPUESTA (gasta créditos del plan)
 //   { accion: "proponer", propuesta, items }   → envía la lista ya revisada a Logrin, donde queda «Por confirmar»
-// Contrato fijo con Logrin (26-nov-2026, igual que R-155): x-puente-firma = HMAC-SHA256(secreto, cuerpo exacto) en hex minúscula.
-// La hora va en el cuerpo («creado», ±5 min) y cada pedido lleva id_peticion o id_propuesta (uuid) para que no se repita.
+// Contrato fijo con Logrin (26-nov-2026): firma x-puente-firma = HMAC-SHA256(secreto, ts + "." + cuerpo) en hex y x-puente-ts (ms).
 // Elio NUNCA escribe stock ni ve precios. Logrin vuelve a validar todo y el dueño acepta con Sí o No.
 // Secretos (los pone el dueño): ANTHROPIC_API_KEY, LOGRIN_INVENTARIO_SECRETO. Opcional: LOGRIN_INVENTARIO_URL, ORIGENES.
 import Anthropic from "npm:@anthropic-ai/sdk";
@@ -50,23 +49,20 @@ function normalizar(items: unknown): Item[] {
   }).filter((x) => x.producto && Number.isFinite(x.cantidad) && x.cantidad >= 1 && x.cantidad <= 999);
 }
 
-async function firmar(cuerpo: string) {
+async function firmar(ts: string, cuerpo: string) {
   const k = await crypto.subtle.importKey("raw", new TextEncoder().encode(SECRETO), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const f = await crypto.subtle.sign("HMAC", k, new TextEncoder().encode(cuerpo));
+  const f = await crypto.subtle.sign("HMAC", k, new TextEncoder().encode(ts + "." + cuerpo));
   return [...new Uint8Array(f)].map((x) => x.toString(16).padStart(2, "0")).join("");
 }
 async function puente(datos: Record<string, unknown>): Promise<{ status: number; j: Record<string, unknown> }> {
   if (!SECRETO) return { status: 503, j: { ok: false, motivo: "sin_secreto" } };
-  const cuerpo = JSON.stringify({ creado: new Date().toISOString(), ...(datos.id_propuesta ? {} : { id_peticion: crypto.randomUUID() }), ...datos });
+  const cuerpo = JSON.stringify(datos), ts = String(Date.now());
   try {
     const r = await fetch(PUENTE_URL, {
       method: "POST", body: cuerpo, signal: AbortSignal.timeout(10000),
-      headers: { "Content-Type": "application/json", "x-puente-firma": await firmar(cuerpo) },
+      headers: { "Content-Type": "application/json", "x-puente-ts": ts, "x-puente-firma": await firmar(ts, cuerpo) },
     });
-    const j = await r.json().catch(() => ({}));
-    const porCodigo: Record<number, string> = { 401: "invalido", 409: "repetido", 410: "enlace_revocado", 429: "tope", 400: "invalido", 503: "sin_secreto" };
-    if (!r.ok && !j.motivo && porCodigo[r.status]) j.motivo = porCodigo[r.status];
-    return { status: r.status, j };
+    return { status: r.status, j: await r.json().catch(() => ({})) };
   } catch (e) { console.warn("puente-inventario", String(e)); return { status: 502, j: { ok: false, motivo: "sin_conexion" } }; }
 }
 const MOTIVOS: Record<string, string> = {
@@ -76,7 +72,6 @@ const MOTIVOS: Record<string, string> = {
   enlace_revocado: "La conexión con tu negocio se quitó desde Logrin. Conéctate de nuevo con un código nuevo.",
   sin_secreto: "La conexión con Logrin todavía no está activada. Muy pronto.",
   sin_conexion: "Logrin no respondió. Inténtalo en unos minutos.",
-  repetido: "Esta lista ya se había enviado a Logrin.",
 };
 
 Deno.serve(async (req) => {
@@ -191,13 +186,12 @@ Deno.serve(async (req) => {
     const { data: prop } = await admin.from("inventario_propuestas").select("id,estado").eq("id", String(b.propuesta ?? "")).eq("usuario", user.id).maybeSingle();
     if (!prop) return json(c, 404, { mensaje: "No encontré esa lista. Toma la foto de nuevo." });
     if (prop.estado === "enviada") return json(c, 409, { mensaje: "Esta lista ya se envió a Logrin." });
-    const { status, j } = await puente({ accion: "proponer", enlace_id: enlace.enlace_id, id_propuesta: prop.id, origen: "foto", items });
+    const { status, j } = await puente({ accion: "proponer", enlace_id: enlace.enlace_id, id_propuesta: prop.id, creado: new Date().toISOString(), origen: "foto", items });
     const ok = status === 200 && j.ok === true;
     await admin.from("inventario_propuestas").update({ items, estado: ok ? "enviada" : "error", respuesta: j, enviada: ok ? new Date().toISOString() : null }).eq("id", prop.id);
     if (!ok) {
       if (j.motivo === "enlace_revocado") await admin.from("logrin_enlaces").delete().eq("usuario", user.id);
-      if (j.motivo === "repetido") await admin.from("inventario_propuestas").update({ estado: "enviada" }).eq("id", prop.id);
-    return json(c, status === 429 ? 429 : 400, { mensaje: MOTIVOS[String(j.motivo)] ?? MOTIVOS.invalido });
+      return json(c, status === 429 ? 429 : 400, { mensaje: MOTIVOS[String(j.motivo)] ?? MOTIVOS.invalido });
     }
     return json(c, 200, { ok: true, negocio: enlace.negocio_nombre });
   }
