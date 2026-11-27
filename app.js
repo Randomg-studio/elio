@@ -168,6 +168,8 @@ $('#cerrar-acceso').addEventListener('click', () => $('#acceso').classList.add('
 async function entrarApp() {
   E.invitado = false; document.body.classList.remove('es-invitado');
   $('#acceso').classList.add('oculto'); $('#app').classList.remove('oculto');
+  await registrarDispositivo();
+  await aceptarInvitacionPendiente();
   await cargarEstado();
   if (sb && E.estado && !E.estado.acepto && E.sesion?.user?.user_metadata?.acepto) await sb.rpc('elio_aceptar_terminos');
   await cargarChats();
@@ -192,6 +194,7 @@ async function cargarEstado() {
   const orb = $('[data-motor=orbita] small');
   if (orb) orb.textContent = E.cred?.plan === 'libre' ? `Experto · probadita: te quedan ${E.cred.probadita_restante} de 3 esta semana` : 'Experto en análisis y documentos · 10 créditos · Impulso y Ultra';
   $$('[data-activar-prueba]').forEach((b) => b.classList.toggle('oculto', !E.cred?.prueba_disponible));
+  $('#ver-compartir').hidden = !(E.cred?.titular_ultra || E.cred?.compartido);
   $('#prueba-planes').classList.toggle('oculto', !E.cred?.prueba_disponible);
   $('#mejora-prueba-nota').classList.toggle('oculto', !E.cred?.prueba_disponible);
   $('.adjuntar').style.opacity = s.plan === 'libre' ? 0.5 : 1;
@@ -302,7 +305,7 @@ async function enviar(texto, adjunto) {
     const s = E.invitado ? null : (await sb.auth.getSession()).data;
     const r = await fetch(`${CFG.SUPABASE_URL}/functions/v1/elio-chat`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', apikey: CFG.SUPABASE_KEY, ...(s?.session ? { Authorization: `Bearer ${s.session.access_token}` } : {}) },
+      headers: { 'Content-Type': 'application/json', apikey: CFG.SUPABASE_KEY, 'x-elio-dispositivo': idDispositivo(), ...(s?.session ? { Authorization: `Bearer ${s.session.access_token}` } : {}) },
       body: JSON.stringify(E.invitado ? { texto, invitado: true, historial: E.historialInv } : { conversacion: E.conv, texto, motor: E.motor, ...(adjunto?.documento ? { documento: adjunto.documento } : adjunto ? { adjunto } : {}) }),
     });
     if (!r.ok || !r.body) {
@@ -310,6 +313,7 @@ async function enviar(texto, adjunto) {
       if (j.codigo === 'registro') { b.error(j.mensaje); E.restantes = 0; guardarRestantes(); pintarRestantes(); pedirCuenta(j.mensaje); return; }
       b.error(j.mensaje || 'No pude responder. Revisa tu conexión.', r.status >= 500 && r.status !== 503 ? () => enviar(texto, adjunto) : null, j.codigo === 'cupo' || j.codigo === 'tope_libre');
       if (j.mejora || j.codigo === 'tope_libre') abrirMejora(j.mensaje);
+      if (j.codigo === 'dispositivo') abrirDispositivos(j.mensaje);
       return;
     }
     const lector = r.body.getReader(), dec = new TextDecoder(); let buf = '', fallo = null;
@@ -383,6 +387,81 @@ $$('[data-activar-prueba]').forEach((b) => b.addEventListener('click', async () 
   toast(`¡Listo! Tienes Impulso gratis hasta el ${new Date(data.vence + 'T12:00').toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long' })} 🎉`);
   cargarEstado();
 }));
+
+// ---------- Dispositivos (Libre 2 · Impulso 3 · Ultra 2 por persona) ----------
+function nombreDispositivo() {
+  const ua = navigator.userAgent;
+  const tipo = /iPhone|Android.+Mobile/i.test(ua) ? 'Celular' : /iPad|Tablet|Android/i.test(ua) ? 'Tablet' : 'Computadora';
+  const so = /Android/i.test(ua) ? 'Android' : /iPhone|iPad|Mac OS/i.test(ua) ? (/(iPhone|iPad)/i.test(ua) ? 'iOS' : 'Mac') : /Windows/i.test(ua) ? 'Windows' : /Linux/i.test(ua) ? 'Linux' : '';
+  const nav = /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera' : /Chrome\//.test(ua) ? 'Chrome' : /Firefox\//.test(ua) ? 'Firefox' : /Safari\//.test(ua) ? 'Safari' : 'Navegador';
+  return `${tipo}${so ? ' ' + so : ''} · ${nav}`;
+}
+async function registrarDispositivo() {
+  if (!sb || DEMO || !E.sesion) return true;
+  const { data, error } = await sb.rpc('elio_mi_dispositivo', { dispositivo: idDispositivo(), nombre: nombreDispositivo() });
+  if (error) { toast(error.message); return false; }
+  if (data?.ok) { E.dispositivoId = data.id; return true; }
+  if (data?.motivo === 'cerrado') {
+    toast('Cerraste la sesión de este dispositivo desde otro. Vuelve a iniciar sesión.');
+    try { localStorage.removeItem('elio_dispositivo'); } catch (e) {}
+    await sb.auth.signOut(); return false;
+  }
+  abrirDispositivos(`Llegaste al máximo de ${data?.max ?? ''} dispositivos de tu plan. Cierra la sesión de uno que ya no uses para usar Elio aquí.`, true);
+  return false;
+}
+async function abrirDispositivos(msg, bloqueante = false) {
+  $('#dispositivos').classList.remove('oculto');
+  $('#disp-cerrar').hidden = bloqueante;
+  $('#disp-msg').textContent = msg || 'Estos son los dispositivos con tu sesión abierta.';
+  $('#disp-max').textContent = E.cred?.dispositivos_max ?? 2;
+  const { data } = await sb.from('dispositivos').select('id,nombre,activo,ultimo,creado').eq('activo', true).order('ultimo', { ascending: false });
+  $('#disp-lista').innerHTML = (data || []).map((d) => `<div class="b-doc"><div class="b-doc-cab"><b>${d.id === E.dispositivoId ? '📍 ' : '💻 '}${esc(d.nombre)}</b><small>${d.id === E.dispositivoId ? 'Este dispositivo' : 'Último uso: ' + new Date(d.ultimo).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' })}</small>${d.id === E.dispositivoId ? '' : `<button class="boton" type="button" data-cerrar-disp="${d.id}">Cerrar sesión ahí</button>`}</div></div>`).join('') || '<p class="nota">No hay dispositivos.</p>';
+}
+$('#ver-dispositivos').addEventListener('click', () => { $('#menu-usuario').classList.add('oculto'); abrirDispositivos(); });
+$('#disp-lista').addEventListener('click', async (e) => {
+  const id = e.target.dataset.cerrarDisp; if (!id) return;
+  if (!confirm('¿Cerrar la sesión de Elio en ese dispositivo?')) return;
+  const { error } = await sb.rpc('elio_cerrar_dispositivo', { d: Number(id) });
+  if (error) return toast('No se pudo cerrar.');
+  toast('Sesión cerrada en ese dispositivo ✔');
+  if (!E.dispositivoId) { if (await registrarDispositivo()) { $('#dispositivos').classList.add('oculto'); cargarEstado(); return; } }
+  abrirDispositivos();
+});
+
+// ---------- Compartir Ultra (2 personas) ----------
+(() => { const c = new URLSearchParams(location.search).get('invitacion'); if (c) { try { sessionStorage.setItem('elio_invitacion', c); } catch (e) {} history.replaceState(null, '', location.pathname); } })();
+async function aceptarInvitacionPendiente() {
+  let c = null; try { c = sessionStorage.getItem('elio_invitacion'); } catch (e) {}
+  if (!c || !sb || !E.sesion) return;
+  try { sessionStorage.removeItem('elio_invitacion'); } catch (e) {}
+  const { error } = await sb.rpc('elio_aceptar_ultra', { codigo: c });
+  toast(error ? error.message : '¡Listo! Ya compartes Elio Ultra 🎉 Tienes tu propia cuenta y tu espacio privado.');
+}
+async function abrirCompartir() {
+  $('#menu-usuario').classList.add('oculto'); $('#compartir').classList.remove('oculto');
+  const { data: c } = await sb.rpc('elio_mi_compartido');
+  let html;
+  if (c && !c.soy_titular) html = `<p>Compartes el plan Ultra de <b>${esc(c.titular_nombre || 'otra persona')}</b>.</p><button class="boton" type="button" id="comp-salir">Dejar de compartir</button>`;
+  else if (c && c.estado === 'activa') html = `<p>Compartes tu Ultra con <b>${esc(c.invitado_nombre || c.correo)}</b> (${esc(c.correo)}).</p><button class="boton" type="button" id="comp-salir">Quitar a esta persona</button>`;
+  else html = `${c && c.estado === 'pendiente' ? `<p class="nota">Invitación enviada a <b>${esc(c.correo)}</b>. Esperando que la acepte.</p>` : ''}
+    <form id="comp-form" class="a-fila"><input id="comp-correo" type="email" required maxlength="200" placeholder="Correo de la otra persona" aria-label="Correo"><button class="boton principal" type="submit">${c ? 'Reenviar o cambiar' : 'Invitar'}</button></form>
+    ${c ? '<button class="boton" type="button" id="comp-salir">Cancelar invitación</button>' : ''}`;
+  $('#comp-cuerpo').innerHTML = html;
+}
+$('#ver-compartir').addEventListener('click', abrirCompartir);
+$('#comp-cuerpo').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const { error } = await sb.rpc('elio_invitar_ultra', { correo: $('#comp-correo').value });
+  if (error) return toast(error.message);
+  toast('Invitación enviada por correo ✔'); abrirCompartir();
+});
+$('#comp-cuerpo').addEventListener('click', async (e) => {
+  if (e.target.id !== 'comp-salir') return;
+  if (!confirm('¿Seguro? La otra persona vuelve a su propio plan.')) return;
+  const { error } = await sb.rpc('elio_salir_ultra');
+  if (error) return toast('No se pudo completar.');
+  toast('Listo ✔'); abrirCompartir(); cargarEstado();
+});
 
 // ---------- Créditos: medidor visible ----------
 const horaCorta = (t) => t ? new Date(t).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }) : '';
@@ -722,10 +801,11 @@ async function llamarBiblioteca(cuerpo) {
   const { data } = await sb.auth.getSession();
   const r = await fetch(`${CFG.SUPABASE_URL}/functions/v1/elio-biblioteca`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', apikey: CFG.SUPABASE_KEY, Authorization: `Bearer ${data.session?.access_token}` },
+    headers: { 'Content-Type': 'application/json', apikey: CFG.SUPABASE_KEY, 'x-elio-dispositivo': idDispositivo(), Authorization: `Bearer ${data.session?.access_token}` },
     body: JSON.stringify(cuerpo),
   });
   const j = await r.json().catch(() => ({}));
+  if (j.codigo === 'dispositivo') abrirDispositivos(j.mensaje);
   if (!r.ok) throw new Error(j.mensaje || 'No se pudo completar. Inténtalo de nuevo.');
   return j;
 }
