@@ -71,18 +71,46 @@ function trocear(paginas: string[]): { pagina: number; texto: string }[] {
 }
 
 // ---------- Tapar datos sensibles (claves, contraseñas, tarjetas, códigos) ----------
+// ===== Guardia de privacidad (copia de supabase/functions/_compartido/guardia.ts; manual EL-SEG-001) =====
+type Hallazgo = "secreto" | "contrasena" | "codigo" | "tarjeta" | "cuenta" | "documento";
+const luhn = (d: string) => {
+  let s = 0, par = false;
+  for (let i = d.length - 1; i >= 0; i--) { let n = d.charCodeAt(i) - 48; if (par) { n *= 2; if (n > 9) n -= 9; } s += n; par = !par; }
+  return s % 10 === 0;
+};
+function taparSecretos(texto: string): { texto: string; hallados: Hallazgo[] } {
+  const h = new Set<Hallazgo>();
+  let t = String(texto ?? "");
+  const tapar = (re: RegExp, tipo: Hallazgo, rep: string | ((...a: string[]) => string)) => {
+    t = t.replace(re, (...a: string[]) => { h.add(tipo); return typeof rep === "string" ? rep : rep(...a); });
+  };
+  // Llaves privadas y tokens con formato conocido
+  tapar(/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?(-----END [A-Z ]*PRIVATE KEY-----|$)/g, "secreto", "[SECRETO_ELIMINADO]");
+  tapar(/\b(sk-(?:ant-|proj-|live-|test-)?[A-Za-z0-9_-]{20,}|sb_secret_[A-Za-z0-9_-]{16,}|AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|xox[abprs]-[A-Za-z0-9-]{10,}|AIza[0-9A-Za-z_-]{35}|eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,})/g, "secreto", "[SECRETO_ELIMINADO]");
+  tapar(/\b((?:api[ _-]?key|apikey|access[ _-]?token|secret|token|clave api|clave secreta|service_role)\s*[:=]\s*["']?)([^\s"']{12,})/gi, "secreto", (_m, a) => a + "[SECRETO_ELIMINADO]");
+  // Contraseñas y PIN con su palabra clave
+  // «contraseña: X» o «clave = X» siempre; «mi clave es X» solo si X tiene números o símbolos (para no tapar «la clave es estudiar»)
+  tapar(/\b((?:contrase[ñn]a|password|passwd|clave|pin)(?:\s+(?:de|del|mi|tu|su|actual|nueva|[a-záéíóúñ]+)){0,3}\s*[:=]\s*["'«]?)([^\s"'»,;]{4,64})/gi, "contrasena", (_m, a) => a + "[SECRETO_ELIMINADO]");
+  tapar(/\b((?:contrase[ñn]a|password|passwd|clave|pin)(?:\s+(?:de|del|mi|tu|su|actual|nueva|[a-záéíóúñ]+)){0,3}\s+(?:es|era|sería)\s+["'«]?)((?=[^\s"'»,;]*[\d@#$%&*!?_.+-])[^\s"'»,;]{4,64})/gi, "contrasena", (_m, a) => a + "[SECRETO_ELIMINADO]");
+  // Códigos de verificación (OTP) y CVV
+  tapar(/\b((?:c[oó]digo|token|otp)(?:\s+(?:de|del))?(?:\s+(?:verificaci[oó]n|seguridad|sms|acceso|confirmaci[oó]n|yape|whatsapp))+\s*(?:[:=]|es)?\s*)(\d{4,8})\b/gi, "codigo", (_m, a) => a + "[SECRETO_ELIMINADO]");
+  tapar(/\b((?:cvv|cvc|cvv2)\s*[:=]?\s*)(\d{3,4})\b/gi, "tarjeta", (_m, a) => a + "[SECRETO_ELIMINADO]");
+  // Tarjetas: 13 a 19 dígitos (con espacios o guiones) que pasan Luhn
+  t = t.replace(/\b(?:\d[ -]?){12,18}\d\b/g, (m) => { const d = m.replace(/\D/g, ""); if (d.length >= 13 && d.length <= 19 && luhn(d)) { h.add("tarjeta"); return "[SECRETO_ELIMINADO]"; } return m; });
+  // CCI (20 dígitos) y cuentas bancarias con su palabra clave
+  tapar(/\b((?:cci|cuenta(?:\s+(?:de\s+)?(?:ahorros?|corriente|bancaria|interbancaria))?|n[°º.]?\s*de\s*cuenta|nro\.?\s*de\s*cuenta)\s*(?:n[°º.]?|nro\.?|número)?\s*[:=]?\s*)(\d[\d -]{8,24}\d)/gi, "cuenta", (_m, a) => a + "[SECRETO_ELIMINADO]");
+  tapar(/\b\d{20}\b/g, "cuenta", "[SECRETO_ELIMINADO]");
+  // Documentos de identidad con su palabra clave (DNI 8, CE 9-12, pasaporte)
+  tapar(/\b((?:dni|d\.n\.i\.?|documento de identidad|carn[eé] de extranjer[ií]a|c\.?e\.?|pasaporte)\s*(?:n[°º.]?|nro\.?|número|es)?\s*[:=]?\s*)([A-Z]{0,2}\d{8,12})\b/gi, "documento", (_m, a) => a + "[DOCUMENTO]");
+  return { texto: t, hallados: [...h] };
+}
+// Canario sintético: si aparece en una salida, alguien logró extraer instrucciones internas.
+const CANARIO = "ELIO-CANARIO-7Q2X-NO-REVELAR";
+
+// Compatibilidad: «Trae tu historial» y la Biblioteca usan la misma guardia que el chat
 function taparSensibles(t: string): { texto: string; ocultos: number } {
-  let n = 0;
-  const tapar = () => { n++; return "[oculto]"; };
-  t = t.replace(/\b(sk-[A-Za-z0-9_-]{16,}|sb_secret_[A-Za-z0-9_-]{10,}|AIza[0-9A-Za-z_-]{30,}|gh[pousr]_[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,})/g, tapar);
-  t = t.replace(/((?:contrase[ñn]a|password|clave|pin|token|api[ _-]?key)\s*[:=]\s*)(\S{4,})/gi, (_m, a) => a + tapar());
-  t = t.replace(/\b(?:\d[ -]?){13,19}\b/g, (m) => {
-    const d = m.replace(/\D/g, ""); let sum = 0;
-    for (let i = 0; i < d.length; i++) { let x = Number(d[d.length - 1 - i]); if (i % 2) { x *= 2; if (x > 9) x -= 9; } sum += x; }
-    return sum % 10 === 0 ? tapar() : m;   // solo si pasa la prueba de Luhn (parece tarjeta real)
-  });
-  t = t.replace(/(c[oó]digo(?: de verificaci[oó]n)?\s*[:=]?\s*)(\d{4,8})\b/gi, (_m, a) => a + tapar());
-  return { texto: t, ocultos: n };
+  const r = taparSecretos(t);
+  return { texto: r.texto, ocultos: (r.texto.match(/\[(SECRETO_ELIMINADO|DOCUMENTO)\]/g) ?? []).length - (t.match(/\[(SECRETO_ELIMINADO|DOCUMENTO)\]/g) ?? []).length };
 }
 
 // ---------- Puente a la Consola madre (solo la cuenta del dueño) ----------
@@ -235,6 +263,7 @@ Deno.serve(async (req) => {
         paginas = [textoDe(r)];
       }
 
+      paginas = paginas.map((t) => taparSecretos(t).texto);   // claves, tarjetas y documentos se tapan ANTES de guardar trozos o resumir
       const completo = paginas.map((t, i) => `[Página ${i + 1}]\n${t}`).join("\n\n").slice(0, 60000);
       if (completo.replace(/\s/g, "").length < 20) return await fallar("No encontré texto legible en ese archivo.");
 
@@ -278,7 +307,7 @@ En "fechas" incluye solo vencimientos, renovaciones, pagos o plazos FUTUROS que 
 
   // ---------- Preguntar a la Biblioteca ----------
   if (cuerpo.accion === "preguntar") {
-    const pregunta = String(cuerpo.pregunta ?? "").trim().slice(0, 1000);
+    const pregunta = taparSecretos(String(cuerpo.pregunta ?? "").trim().slice(0, 1000)).texto;
     if (pregunta.length < 3) return json(c, 400, { mensaje: "Escribe tu pregunta." });
     if (sinPresupuesto) return json(c, 503, { mensaje: "La Biblioteca está con mucha demanda hoy. Inténtalo mañana." });
     const { data: usoHoy } = await admin.from("uso").select("preguntas_biblioteca").eq("usuario", user.id).eq("dia", hoy).maybeSingle();
@@ -325,7 +354,7 @@ Si la respuesta no está en los fragmentos, dilo con honestidad. No inventes nad
     const tipo = TIPOS.includes(String(b.tipo)) ? String(b.tipo) : "otro";
     const titulo = String(b.titulo ?? "").replace(/[\u0000-\u001f]/g, " ").trim().slice(0, 160);
     const enlace = /^https?:\/\/\S{3,490}$/i.test(String(b.enlace ?? "").trim()) ? String(b.enlace).trim() : null;
-    const nota = String(b.texto ?? "").trim().slice(0, 30000);
+    const nota = taparSecretos(String(b.texto ?? "").trim().slice(0, 30000)).texto;
     if (titulo.length < 2) return json(c, 400, { mensaje: "Escribe el título." });
     if (nota.length < 20) return json(c, 400, { mensaje: "Escribe tus notas o pega el texto (al menos una o dos frases). Elio no abre enlaces por ti." });
     if (sinPresupuesto) return json(c, 503, { mensaje: "La Biblioteca está con mucha demanda hoy. Inténtalo mañana." });
@@ -406,7 +435,7 @@ No inventes nada que no esté en el texto.`,
 
   // ---------- Mi día: entender «recuérdame pagar la luz el viernes» y guardarlo ----------
   if (cuerpo.accion === "tarea") {
-    const frase = String((cuerpo as { texto?: string }).texto ?? "").trim().slice(0, 300);
+    const frase = taparSecretos(String((cuerpo as { texto?: string }).texto ?? "").trim().slice(0, 300)).texto;
     if (frase.length < 3) return json(c, 400, { mensaje: "Escribe la tarea." });
     if (sinPresupuesto) return json(c, 503, { mensaje: "Elio está con mucha demanda. Agrega la tarea a mano en Mi día." });
     const hace1h = new Date(Date.now() - 3600_000).toISOString();
