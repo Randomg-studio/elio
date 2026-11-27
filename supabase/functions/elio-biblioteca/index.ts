@@ -33,7 +33,7 @@ const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE
 
 const cors = (o: string | null) => ({
   "Access-Control-Allow-Origin": o && ORIGENES.includes(o) ? o : ORIGENES[0],
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-elio-dispositivo",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Vary": "Origin",
 });
@@ -126,6 +126,9 @@ Deno.serve(async (req) => {
   const jwt = (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "");
   const user = jwt.split(".").length === 3 ? (await admin.auth.getUser(jwt)).data?.user ?? null : null;
   if (!user) return json(c, 401, { mensaje: "Inicia sesión para usar tu Biblioteca." });
+  // Dispositivos: solo los registrados y activos de la persona (Libre 2 · Impulso 3 · Ultra 2 por persona)
+  const { data: dispOk } = await admin.rpc("elio_dispositivo_ok", { u: user.id, dispositivo: req.headers.get("x-elio-dispositivo") ?? "" });
+  if (!dispOk) return json(c, 401, { mensaje: "Este dispositivo no está activo en tu cuenta. Recarga la página o revisa «Mis dispositivos».", codigo: "dispositivo" });
 
   let cuerpo: { accion?: string; ruta?: string; nombre?: string; pregunta?: string; documento?: string };
   try { cuerpo = await req.json(); } catch { return json(c, 400, { mensaje: "Pedido inválido." }); }

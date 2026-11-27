@@ -129,7 +129,7 @@ function cors(origen: string | null): Record<string, string> {
   const ok = origen && ORIGENES.includes(origen) ? origen : ORIGENES[0];
   return {
     "Access-Control-Allow-Origin": ok,
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-elio-dispositivo",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Vary": "Origin",
   };
@@ -271,6 +271,9 @@ Deno.serve(async (req) => {
   }
 
   // ---------- Usuario con cuenta ----------
+  // Dispositivos: solo los registrados y activos de la persona (Libre 2 · Impulso 3 · Ultra 2 por persona)
+  const { data: dispOk } = await admin.rpc("elio_dispositivo_ok", { u: user.id, dispositivo: req.headers.get("x-elio-dispositivo") ?? "" });
+  if (!dispOk) return json(c, 401, { mensaje: "Este dispositivo no está activo en tu cuenta. Recarga la página o revisa «Mis dispositivos».", codigo: "dispositivo" });
   const motor: Motor = (["chispa", "pulso", "orbita", "cumbre"] as const).includes(cuerpo.motor as Motor) ? cuerpo.motor as Motor
     : MOTOR_DE_NIVEL[String(cuerpo.nivel)] ?? "chispa";
   const nivel: Nivel = NIVEL_DE[motor];

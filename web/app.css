@@ -423,3 +423,11 @@ body.es-invitado .enc-vincular{display:none}
 .mejora-caja .a-fila .boton{width:auto;padding:9px 16px}
 .prueba-cinta{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center;margin:12px 0 4px;padding:10px 14px;border:1px solid rgba(0,198,235,.35);border-radius:14px;background:rgba(0,198,235,.08);font-size:14px}
 .prueba-cinta .boton{width:auto;padding:7px 14px}.prueba-cinta small{color:var(--suave)}
+
+/* v17: Mis dispositivos y Compartir Ultra */
+#disp-lista .b-doc-cab{flex-wrap:wrap}
+#disp-lista .b-doc-cab b{flex:1 1 100%;white-space:normal}
+#disp-lista .b-doc-cab small{flex:1}
+#comp-cuerpo .a-fila{margin:10px 0}
+#comp-cuerpo input{flex:1;min-width:0}
+#comp-cuerpo input{background:rgba(255,255,255,.05);border:1px solid var(--linea);border-radius:12px;color:var(--texto);padding:9px 12px;font:inherit;font-size:14px}

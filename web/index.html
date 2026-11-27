@@ -10,7 +10,7 @@
 <link rel="apple-touch-icon" href="img/Elio_Icono-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="app.css?v=16">
+<link rel="stylesheet" href="app.css?v=17">
 </head>
 <body>
 <!-- Iconos (SVG reutilizables) -->
@@ -134,6 +134,8 @@
       <div class="menu-usuario vidrio oculto" id="menu-usuario" role="menu">
         <button id="ver-planes" role="menuitem">✦ Mejorar mi plan</button>
         <button id="ir-admin" role="menuitem" hidden>Panel de administración</button>
+        <button id="ver-dispositivos" role="menuitem">Mis dispositivos</button>
+        <button id="ver-compartir" role="menuitem" hidden>Compartir mi Ultra</button>
         <button id="ver-privacidad" role="menuitem">Privacidad y mis datos</button>
         <a href="terminos.html" target="_blank" role="menuitem">Términos y privacidad</a>
         <button id="salir" role="menuitem">Cerrar sesión</button>
@@ -208,18 +210,18 @@
     <div class="tarjetas">
       <article class="tarjeta" data-plan="libre">
         <h3>Libre</h3><p class="precio">S/ 0</p>
-        <ul><li>⚡ Chispa · 🪐 3 mensajes con Órbita gratis a la semana</li><li>10 créditos cada 5 horas · 40 por semana</li><li>Historial de chats, Mi día, Biblioteca (3 documentos) y 10 referencias</li></ul>
+        <ul><li>⚡ Chispa · 🪐 3 mensajes con Órbita gratis a la semana</li><li>10 créditos cada 5 horas · 40 por semana</li><li>Historial de chats, Mi día, Biblioteca (3 documentos) y 10 referencias</li><li>1 persona · hasta 2 dispositivos</li></ul>
         <button class="boton" disabled>Tu plan base</button>
       </article>
       <article class="tarjeta destacada" data-plan="impulso">
         <span class="cinta">Más elegido</span>
         <h3>Impulso</h3><p class="precio">S/ 56.99<small>/mes · IGV incluido</small></p>
-        <ul><li>⚡ Chispa · 💡 Pulso · 🪐 Órbita</li><li>60 créditos cada 5 horas · 340 por semana</li><li>Sube PDF e imágenes</li><li>Resumen de Mi día por correo y Biblioteca amplia</li></ul>
+        <ul><li>⚡ Chispa · 💡 Pulso · 🪐 Órbita</li><li>60 créditos cada 5 horas · 340 por semana</li><li>Sube PDF e imágenes</li><li>Resumen de Mi día por correo y Biblioteca amplia</li><li>1 persona · hasta 3 dispositivos</li></ul>
         <button class="boton principal" data-comprar="impulso">Elegir Impulso</button>
       </article>
       <article class="tarjeta" data-plan="ultra">
         <h3>Ultra</h3><p class="precio">S/ 159.99<small>/mes · IGV incluido</small></p>
-        <ul><li>Los 4 motores, incluido 🏔️ Cumbre (el más potente)</li><li>150 créditos cada 5 horas · 780 por semana</li><li>Documentos largos y análisis</li><li>Para empresas y usuarios avanzados</li></ul>
+        <ul><li><b>Para 2 personas</b>, cada una con su cuenta y espacio privado</li><li>Los 4 motores, incluido 🏔️ Cumbre (el más potente)</li><li>150 créditos cada 5 horas · 780 por semana (75 y 390 por persona si lo compartes)</li><li>Documentos largos y análisis</li><li>Hasta 4 dispositivos (2 por persona)</li></ul>
         <button class="boton principal" data-comprar="ultra">Elegir Ultra</button>
       </article>
     </div>
@@ -244,6 +246,27 @@
     <p class="aviso" id="pago-aviso"></p>
     <button class="boton principal grande" type="submit"><span>Ya yapeé · Enviar</span></button>
   </form>
+</div>
+
+<!-- Mis dispositivos -->
+<div id="dispositivos" class="modal oculto" role="dialog" aria-modal="true" aria-labelledby="dispositivos-t">
+  <div class="modal-caja vidrio">
+    <button class="icono cerrar" data-cerrar aria-label="Cerrar" id="disp-cerrar">✕</button>
+    <h2 id="dispositivos-t">Mis dispositivos</h2>
+    <p class="nota" id="disp-msg"></p>
+    <div id="disp-lista" class="b-lista"></div>
+    <p class="nota">Tu plan permite <b id="disp-max">2</b> dispositivos con la sesión abierta (Libre 2 · Impulso 3 · Ultra 2 por persona). Cierra uno que ya no uses para abrir Elio en otro.</p>
+  </div>
+</div>
+
+<!-- Compartir Ultra -->
+<div id="compartir" class="modal oculto" role="dialog" aria-modal="true" aria-labelledby="compartir-t">
+  <div class="modal-caja vidrio">
+    <button class="icono cerrar" data-cerrar aria-label="Cerrar">✕</button>
+    <h2 id="compartir-t">Compartir mi Ultra</h2>
+    <p class="nota">Ultra es para <b>2 personas</b>. Cada una entra con su propia cuenta y tiene su espacio privado: nadie ve los chats, la Biblioteca ni Mi día de la otra. Los créditos se dividen en partes iguales: <b>75 cada 5 horas y 390 por semana para cada una</b>.</p>
+    <div id="comp-cuerpo"></div>
+  </div>
 </div>
 
 <!-- Ventana de mejora (al llegar al límite de Libre) -->
@@ -437,6 +460,6 @@
 
 <div id="toast" role="status"></div>
 <script src="config.js?v=1"></script>
-<script type="module" src="app.js?v=20"></script>
+<script type="module" src="app.js?v=21"></script>
 </body>
 </html>
