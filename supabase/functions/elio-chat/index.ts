@@ -116,6 +116,8 @@ const GEMINI_MODELOS = (Deno.env.get("MODELO_GEMINI") ?? "gemini-3.1-flash-lite"
 const GEMINI_PRECIO = { pin: 0.25, pout: 1.5 }; // Gemini 3.1 Flash-Lite, nivel de pago (ai.google.dev/pricing, 26-nov-2026)
 
 const TOPE_LIBRE = Number(Deno.env.get("TOPE_LIBRE_USD") ?? "1");
+// Uso de conversaciones para mejorar Elio (SQL 23): versión vigente del aviso que la persona del plan Libre debe aceptar
+const MEJORA_VERSION = "2026-11-27";
 // Plan Libre: 3 fotos por semana por persona y un tope GLOBAL diario solo para esas fotos (contra cuentas múltiples)
 const TOPE_FOTOS_LIBRE = Number(Deno.env.get("TOPE_FOTOS_LIBRE_USD") ?? "0.30");
 const MAX_FOTO_LIBRE = 2_800_000;   // ≈ 2 MB en base64 (la web ya la achica a 1600 px en JPG)
@@ -474,6 +476,11 @@ Deno.serve(async (req) => {
   const { data: planDb } = await admin.rpc("elio_plan", { u: user.id });
   const plan: Plan = (planDb as Plan) ?? "libre";
   const nombrePlan = { libre: "Libre", impulso: "Impulso", ultra: "Ultra" }[plan];
+  const { data: perfMejora } = await admin.from("perfiles").select("mejora_acepto,mejora_version,mejora_voluntaria").eq("id", user.id).maybeSingle();
+  const aceptoMejora = !!perfMejora?.mejora_acepto && perfMejora?.mejora_version === MEJORA_VERSION;
+  if (plan === "libre" && !aceptoMejora)
+    return json(c, 403, { mensaje: "Para seguir con el plan gratis, revisa y acepta el aviso nuevo sobre cómo usamos las conversaciones para mejorar Elio.", codigo: "mejora" });
+  const guardarMuestra = (plan === "libre" && aceptoMejora) || (plan !== "libre" && perfMejora?.mejora_voluntaria === true);
   const hora = (t: string | null) => t ? new Date(t).toLocaleString("es-PE", { timeZone: "America/Lima", weekday: "long", hour: "2-digit", minute: "2-digit" }) : "pronto";
   if ((cuerpo.adjunto || cuerpo.documento) && !ADJUNTOS[plan]) {
     if (cuerpo.documento || !String(cuerpo.adjunto?.tipo ?? "").startsWith("image/"))
@@ -639,6 +646,10 @@ Deno.serve(async (req) => {
           { conversacion: convId, usuario: user.id, rol: "assistant", contenido: respuesta || "…", nivel, motor },
         ]).select("id,rol");
         const idRespuesta = (guardados ?? []).find((x) => x.rol === "assistant")?.id;
+        // Copia para mejorar Elio: solo con aceptación (Libre) o «Ayúdanos a mejorar» (pago); ya tapada por el escudo; nunca en crisis
+        if (guardarMuestra && respuesta && texto && !crisis) {
+          try { await admin.from("mejora_muestras").insert({ usuario: user.id, plan, motor, pregunta: texto.slice(0, 12000), respuesta: respuesta.slice(0, 40000) }); } catch (_) { /* nunca corta el chat */ }
+        }
         if (idRespuesta && respuesta) enviar({ tipo: "mid", id: idRespuesta });   // para «¿Te sirvió?» y las ramas
         await admin.from("conversaciones").update({ actualizado: new Date().toISOString() }).eq("id", convId);
         await admin.rpc("elio_sumar_uso", { u: user.id, nivel: "costo", costo, es_libre: plan === "libre" }); // solo suma el costo
