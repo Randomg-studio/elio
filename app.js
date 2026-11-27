@@ -392,6 +392,114 @@ $$('[data-activar-prueba]').forEach((b) => b.addEventListener('click', async () 
   cargarEstado();
 }));
 
+// ---------- Cámara y fotos livianas (celular: cámara directa; laptop: ventana con la cámara) ----------
+async function achicarFoto(blob, max = 1600) {
+  const img = await createImageBitmap(blob).catch(() => null);
+  if (!img) throw new Error('No se pudo leer la foto.');
+  const k = Math.min(1, max / Math.max(img.width, img.height));
+  const cv = document.createElement('canvas'); cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
+  cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+  const url = cv.toDataURL('image/jpeg', 0.85);
+  return { base64: url.split(',')[1], tipo: 'image/jpeg', url };
+}
+const esTactil = () => matchMedia('(pointer: coarse)').matches;
+let camStream = null, camFrente = false, camResolver = null;
+function cerrarCamara() { camStream?.getTracks().forEach((t) => t.stop()); camStream = null; $('#camara').classList.add('oculto'); }
+async function encenderCamara() {
+  camStream?.getTracks().forEach((t) => t.stop());
+  camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: camFrente ? 'user' : 'environment', width: { ideal: 1920 } }, audio: false });
+  $('#cam-video').srcObject = camStream;
+}
+// Devuelve un Blob con la foto, o null si se canceló
+function tomarFoto() {
+  return new Promise(async (ok) => {
+    if (esTactil() || !navigator.mediaDevices?.getUserMedia) {
+      const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*'; inp.capture = 'environment';
+      inp.onchange = () => ok(inp.files[0] || null); inp.click(); return;
+    }
+    try { await encenderCamara(); } catch (e) { toast('No se pudo abrir la cámara. Revisa el permiso del navegador o usa «Subir foto».'); return ok(null); }
+    camResolver = ok; $('#camara').classList.remove('oculto');
+  });
+}
+$('#cam-foto').addEventListener('click', () => {
+  const v = $('#cam-video'); if (!v.videoWidth) return;
+  const cv = document.createElement('canvas'); cv.width = v.videoWidth; cv.height = v.videoHeight; cv.getContext('2d').drawImage(v, 0, 0);
+  cv.toBlob((bl) => { cerrarCamara(); camResolver?.(bl); camResolver = null; }, 'image/jpeg', 0.92);
+});
+$('#cam-girar').addEventListener('click', async () => { camFrente = !camFrente; try { await encenderCamara(); } catch (e) { toast('No hay otra cámara.'); } });
+$('#cam-cerrar').addEventListener('click', () => { cerrarCamara(); camResolver?.(null); camResolver = null; });
+
+// ---------- Inventario de mi negocio (R-175): foto → lista → «Enviar a Logrin» (queda «Por confirmar») ----------
+async function llamarLogrin(cuerpo) {
+  const { data } = await sb.auth.getSession();
+  const r = await fetch(`${CFG.SUPABASE_URL}/functions/v1/elio-logrin`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: CFG.SUPABASE_KEY, 'x-elio-dispositivo': idDispositivo(), Authorization: `Bearer ${data.session?.access_token}` },
+    body: JSON.stringify(cuerpo),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (j.codigo === 'dispositivo') abrirDispositivos(j.mensaje);
+  if (j.codigo === 'sin_enlace') verVistaInv('inv-conectar');
+  if (!r.ok) throw new Error(j.mensaje || 'No se pudo completar. Inténtalo de nuevo.');
+  return j;
+}
+const vistasInv = ['inv-conectar', 'inv-principal', 'inv-leyendo', 'inv-revisar', 'inv-listo'];
+const verVistaInv = (id) => vistasInv.forEach((v) => { $('#' + v).hidden = v !== id; });
+const CAMPOS_INV = [['producto', 'Producto', 80], ['marca', 'Marca', 80], ['modelo', 'Modelo', 80], ['talla', 'Talla', 20], ['color', 'Color', 40], ['cantidad', 'Cant.', 3]];
+async function abrirInventario() {
+  $('#menu-usuario').classList.add('oculto');
+  if (!E.sesion) return pedirCuenta('Crea tu cuenta o inicia sesión para conectar Elio con tu negocio.');
+  $('#inventario').classList.remove('oculto'); verVistaInv('inv-leyendo');
+  try {
+    const j = await llamarLogrin({ accion: 'estado' });
+    if (!j.enlazado) return verVistaInv('inv-conectar');
+    E.invNegocio = j.negocio; $('#inv-negocio').textContent = j.negocio; verVistaInv('inv-principal');
+  } catch (e) { toast(e.message); verVistaInv('inv-conectar'); }
+}
+$('#ver-inventario').addEventListener('click', abrirInventario);
+$('#inv-form-codigo').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  try { const j = await llamarLogrin({ accion: 'enlazar', codigo: $('#inv-codigo').value }); toast(`Conectado con ${j.negocio} ✔`); $('#inv-codigo').value = ''; abrirInventario(); }
+  catch (err) { toast(err.message); }
+});
+$('#inv-quitar').addEventListener('click', async () => {
+  if (!confirm('¿Quitar la conexión de Elio con tu negocio de Logrin? Podrás conectarte de nuevo con un código nuevo.')) return;
+  try { await llamarLogrin({ accion: 'revocar' }); toast('Conexión quitada ✔'); verVistaInv('inv-conectar'); } catch (err) { toast(err.message); }
+});
+async function leerFotoInventario(blob) {
+  if (!blob) return;
+  if (blob.size > 25 * 1024 * 1024) return toast('La foto pesa demasiado.');
+  verVistaInv('inv-leyendo');
+  try {
+    const f = await achicarFoto(blob);
+    const j = await llamarLogrin({ accion: 'leer_foto', imagen: f.base64, tipo: f.tipo });
+    E.invProp = j.propuesta; pintarInventario(j.items || []);
+    $('#inv-aviso').hidden = !j.aviso; $('#inv-aviso').textContent = j.aviso || '';
+    if (!(j.items || []).length) toast('No reconocí productos en la foto. Agrégalos a mano o toma otra foto con más luz.');
+    verVistaInv('inv-revisar'); cargarEstado();
+  } catch (err) { toast(err.message); verVistaInv('inv-principal'); }
+}
+$('#inv-camara').addEventListener('click', async () => leerFotoInventario(await tomarFoto()));
+$('#inv-archivo').addEventListener('change', (e) => { const f = e.target.files[0]; e.target.value = ''; leerFotoInventario(f); });
+$('#inv-otra').addEventListener('click', () => verVistaInv('inv-principal'));
+$('#inv-nueva').addEventListener('click', () => verVistaInv('inv-principal'));
+function filaInv(it = {}) {
+  return `<div class="inv-fila">${CAMPOS_INV.map(([k, et, n]) => `<label><small>${et}</small><input data-k="${k}" ${k === 'cantidad' ? 'type="number" min="1" max="999" inputmode="numeric"' : `maxlength="${n}"`} value="${esc(it[k] ?? (k === 'cantidad' ? 1 : ''))}"></label>`).join('')}<button class="icono" type="button" data-quitar aria-label="Quitar producto">✕</button></div>`;
+}
+function pintarInventario(items) { $('#inv-tabla').innerHTML = (items.length ? items : [{}]).map(filaInv).join(''); }
+$('#inv-tabla').addEventListener('click', (e) => { if (e.target.closest('[data-quitar]')) e.target.closest('.inv-fila').remove(); });
+$('#inv-agregar').addEventListener('click', () => { if ($$('#inv-tabla .inv-fila').length >= 30) return toast('Máximo 30 productos por lista.'); $('#inv-tabla').insertAdjacentHTML('beforeend', filaInv()); });
+$('#inv-enviar').addEventListener('click', async () => {
+  const items = $$('#inv-tabla .inv-fila').map((f) => Object.fromEntries([...f.querySelectorAll('input')].map((i) => [i.dataset.k, i.dataset.k === 'cantidad' ? Number(i.value) : i.value.trim()]))).filter((x) => x.producto);
+  if (!items.length) return toast('Escribe al menos un producto.');
+  if (items.some((x) => !(x.cantidad >= 1 && x.cantidad <= 999))) return toast('Cada cantidad debe ser de 1 a 999.');
+  if (!confirm(`¿Enviar ${items.length} producto${items.length === 1 ? '' : 's'} a Logrin? Quedarán «Por confirmar» hasta que los aceptes allá.`)) return;
+  const btn = $('#inv-enviar'); btn.disabled = true;
+  try { await llamarLogrin({ accion: 'proponer', propuesta: E.invProp, items }); $('#inv-listo-negocio').textContent = E.invNegocio || 'tu negocio'; verVistaInv('inv-listo'); }
+  catch (err) { toast(err.message); }
+  finally { btn.disabled = false; }
+});
+
 // ---------- Mis proyectos (Ultra), ramas, fijar y descargar ----------
 const vistasProy = ['proy-lista-vista', 'proy-sin-ultra', 'proy-crear', 'proy-abrir', 'proy-recuperar', 'proy-vista'];
 const verVistaProy = (id) => vistasProy.forEach((v) => { $('#' + v).hidden = v !== id; });
