@@ -5,6 +5,8 @@
 //   { accion: "revocar" }                      → quita el enlace (aquí y en Logrin)
 //   { accion: "leer_foto", imagen, tipo }      → la IA lee la foto y arma una lista PROPUESTA (gasta créditos del plan)
 //   { accion: "proponer", propuesta, items }   → envía la lista ya revisada a Logrin, donde queda «Por confirmar»
+// Desde Logrin (sin sesión, solo con la firma x-puente-ts / x-puente-firma):
+//   { accion: "plan", enlace_id, activo, plan: "ultra", vence, id_peticion, creado } → «Elio para Logrin» (Ultra para 2 del negocio)
 // Contrato fijo con Logrin (26-nov-2026): firma x-puente-firma = HMAC-SHA256(secreto, ts + "." + cuerpo) en hex y x-puente-ts (ms).
 // Elio NUNCA escribe stock ni ve precios. Logrin vuelve a validar todo y el dueño acepta con Sí o No.
 // Secretos (los pone el dueño): ANTHROPIC_API_KEY, LOGRIN_INVENTARIO_SECRETO. Opcional: LOGRIN_INVENTARIO_URL, ORIGENES.
@@ -65,6 +67,39 @@ async function puente(datos: Record<string, unknown>): Promise<{ status: number;
     return { status: r.status, j: await r.json().catch(() => ({})) };
   } catch (e) { console.warn("puente-inventario", String(e)); return { status: 502, j: { ok: false, motivo: "sin_conexion" } }; }
 }
+// ---------- Lo que llega DESDE Logrin: el plan de «Elio para Logrin» ----------
+function igual(a: string, b: string) {   // comparación en tiempo constante
+  if (a.length !== b.length) return false;
+  let d = 0; for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return d === 0;
+}
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+async function desdeLogrin(req: Request): Promise<Response> {
+  const r = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+  if (!SECRETO) return r(503, { ok: false, motivo: "sin_secreto" });
+  const ts = req.headers.get("x-puente-ts") ?? "", firma = (req.headers.get("x-puente-firma") ?? "").toLowerCase();
+  const cuerpo = await req.text();
+  if (cuerpo.length > 4000) return r(400, { ok: false, motivo: "invalido" });
+  if (!/^\d{13}$/.test(ts) || Math.abs(Date.now() - Number(ts)) > 5 * 60_000) return r(401, { ok: false, motivo: "firma" });
+  if (!igual(await firmar(ts, cuerpo), firma)) return r(401, { ok: false, motivo: "firma" });
+  let b: Record<string, unknown>;
+  try { b = JSON.parse(cuerpo); } catch { return r(400, { ok: false, motivo: "invalido" }); }
+  if (b.accion !== "plan") return r(400, { ok: false, motivo: "invalido" });
+  const enlaceId = typeof b.enlace_id === "string" ? b.enlace_id : "";
+  const vence = new Date(String(b.vence ?? "")), activo = b.activo === true;
+  if (enlaceId.length < 8 || enlaceId.length > 80 || typeof b.activo !== "boolean" || !UUID.test(String(b.id_peticion ?? ""))) return r(400, { ok: false, motivo: "invalido" });
+  if (activo && (b.plan !== "ultra" || isNaN(vence.getTime()) || vence.getTime() < Date.now() || vence.getTime() > Date.now() + 40 * 86400_000)) return r(400, { ok: false, motivo: "invalido" });
+  const { error: rep } = await admin.from("logrin_peticiones").insert({ id: String(b.id_peticion) });
+  if (rep) return rep.code === "23505" ? r(200, { ok: true, repetida: true }) : r(500, { ok: false, motivo: "error" });
+  const { data, error } = await admin.from("logrin_enlaces")
+    .update({ plan_logrin: activo ? "ultra" : null, plan_vence: activo ? vence.toISOString() : null })
+    .eq("enlace_id", enlaceId).select("usuario");
+  if (error) return r(500, { ok: false, motivo: "error" });
+  if (!data?.length) return r(404, { ok: false, motivo: "enlace_desconocido" });
+  admin.from("logrin_peticiones").delete().lt("recibido", new Date(Date.now() - 7 * 86400_000).toISOString()).then(() => {});
+  return r(200, { ok: true });
+}
+
 const MOTIVOS: Record<string, string> = {
   invalido: "Logrin no aceptó el pedido. Revisa los datos e inténtalo de nuevo.",
   codigo: "El código no es válido o ya venció. Genera uno nuevo en Logrin (vale 10 minutos).",
@@ -78,6 +113,7 @@ Deno.serve(async (req) => {
   const c = cors(req.headers.get("origin"));
   if (req.method === "OPTIONS") return new Response("ok", { headers: c });
   if (req.method !== "POST") return json(c, 405, { mensaje: "Método no permitido" });
+  if (req.headers.get("x-puente-firma")) return await desdeLogrin(req);   // viene de Logrin, no de una persona
 
   const jwt = (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "");
   const user = jwt.split(".").length === 3 ? (await admin.auth.getUser(jwt)).data?.user ?? null : null;
