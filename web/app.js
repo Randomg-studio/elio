@@ -388,6 +388,54 @@ $$('[data-activar-prueba]').forEach((b) => b.addEventListener('click', async () 
   cargarEstado();
 }));
 
+// ---------- ¿Por qué Elio? Comparativa y reseñas reales ----------
+const estrellasTxt = (n) => '★'.repeat(Math.round(n)) + '☆'.repeat(5 - Math.round(n));
+async function leerResenas() {
+  if (!sb) return null;
+  const { data, error } = await sb.rpc('elio_resenas_publicas');
+  return error ? null : data;
+}
+async function cargarResumenPorque() {
+  const d = await leerResenas();
+  $('#porque-resumen').textContent = d?.total ? `${Number(d.promedio).toFixed(1)} de 5 · ${d.total} reseña${d.total === 1 ? '' : 's'} real${d.total === 1 ? '' : 'es'}` : 'Reseñas reales';
+  return d;
+}
+$('#abrir-porque').addEventListener('click', async () => {
+  $('#porque').classList.remove('oculto');
+  $('#porque-resenas').innerHTML = '<p class="nota">Cargando…</p>';
+  const d = await cargarResumenPorque();
+  $('#porque-prom').textContent = d?.total ? `${estrellasTxt(d.promedio)} ${Number(d.promedio).toFixed(1)} de 5 (${d.total})` : '';
+  $('#porque-resenas').innerHTML = d?.total
+    ? d.resenas.map((r) => `<div class="b-doc"><div class="b-doc-cab"><b>${esc(r.nombre)} · <span class="estrellas-ver">${estrellasTxt(r.estrellas)}</span></b><small>${NOMBRE_PLAN[r.plan] || ''} · ${esc(r.fecha || '')}</small></div><p>${esc(r.texto)}</p></div>`).join('')
+    : '<p class="nota">Todavía no hay reseñas publicadas. Elio es nuevo: sé de los primeros en opinar.</p>';
+});
+async function abrirResena() {
+  $('#menu-usuario').classList.add('oculto'); $('#porque').classList.add('oculto');
+  if (!E.sesion) return pedirCuenta('Crea tu cuenta gratis o inicia sesión para dejar tu reseña.');
+  $('#resena').classList.remove('oculto');
+  const { data } = await sb.from('resenas').select('estrellas,texto,estado').maybeSingle();
+  const est = { pendiente: 'Tu reseña está en revisión. Si la cambias, vuelve a revisión.', aprobada: 'Tu reseña está publicada. ¡Gracias! Si la cambias, vuelve a revisión.', rechazada: 'Tu reseña no se publicó (por ejemplo, por datos personales o insultos). Puedes escribirla de nuevo.' };
+  $('#resena-estado').textContent = data ? est[data.estado] : 'Cuéntanos con sinceridad cómo te va con Elio. Revisamos cada reseña antes de mostrarla.';
+  $('#resena-borrar').hidden = !data;
+  if (data) { $('#resena-texto').value = data.texto; const r = $(`#resena-form input[value="${data.estrellas}"]`); if (r) r.checked = true; }
+}
+$('#ver-resena').addEventListener('click', abrirResena);
+$('#porque-opinar').addEventListener('click', abrirResena);
+$('#resena-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const est = Number($('#resena-form input[name=estrellas]:checked')?.value || 0);
+  const { error } = await sb.rpc('elio_guardar_resena', { estrellas: est, texto: $('#resena-texto').value, publicar: $('#resena-publicar').checked });
+  if (error) return toast(error.message);
+  $('#resena').classList.add('oculto'); toast('¡Gracias! Revisaremos tu reseña y la publicaremos pronto ✔');
+});
+$('#resena-borrar').addEventListener('click', async () => {
+  if (!confirm('¿Borrar tu reseña?')) return;
+  const { error } = await sb.rpc('elio_borrar_resena');
+  if (error) return toast('No se pudo borrar.');
+  $('#resena').classList.add('oculto'); $('#resena-form').reset(); toast('Reseña borrada ✔'); cargarResumenPorque();
+});
+cargarResumenPorque();
+
 // ---------- Dispositivos (Libre 2 · Impulso 3 · Ultra 2 por persona) ----------
 function nombreDispositivo() {
   const ua = navigator.userAgent;
@@ -1059,8 +1107,20 @@ async function cargarAdmin() {
   ].map(([k, v]) => `<div><b>${esc(v)}</b><small>${k}</small></div>`).join('');
   $('#admin-pagos').innerHTML = (d.pagos || []).length ? d.pagos.map((p) => `<div class="pago-fila"><div><b>${esc(p.nombre || '')}</b> · ${esc(p.email || '')}<br>${NOMBRE_PLAN[p.plan]} · S/ ${Number(p.monto).toFixed(2)} · Operación <b>${esc(p.operacion)}</b> · ${new Date(p.creado).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' })} <span class="estado ${p.estado}">${p.estado}</span></div>
     <div class="acc">${p.estado === 'pendiente' ? `<button class="boton principal" data-ok="${p.id}">Aprobar</button><button class="boton" data-no="${p.id}">Rechazar</button>` : ''}</div></div>`).join('') : '<p class="nota">Todavía no hay pagos.</p>';
-  cargarIntereses(); cargarConsumo(); cargarEncuestaAdmin();
+  cargarIntereses(); cargarConsumo(); cargarEncuestaAdmin(); cargarResenasAdmin();
 }
+async function cargarResenasAdmin() {
+  if (DEMO) return;
+  const r = await sb.rpc('elio_admin_resenas'); if (r.error) { $('#admin-resenas').innerHTML = '<p class="nota">No se pudo cargar.</p>'; return; }
+  $('#admin-resenas').innerHTML = (r.data || []).map((x) => `<div class="pago-fila"><div><b>${esc(x.nombre)}</b> · ${'★'.repeat(x.estrellas)}${'☆'.repeat(5 - x.estrellas)} · ${NOMBRE_PLAN[x.plan] || esc(x.plan)} <span class="estado ${x.estado}">${x.estado}</span><br>${esc(x.texto)}</div>
+    <div class="acc">${x.estado !== 'aprobada' ? `<button class="boton principal" data-res-ok="${x.id}">Aprobar</button>` : ''}${x.estado !== 'rechazada' ? `<button class="boton" data-res-no="${x.id}">Rechazar</button>` : ''}</div></div>`).join('') || '<p class="nota">Todavía no hay reseñas.</p>';
+}
+$('#admin-resenas').addEventListener('click', async (e) => {
+  const id = e.target.dataset.resOk || e.target.dataset.resNo; if (!id) return;
+  const { error } = await sb.rpc('elio_moderar_resena', { id, aprobar: !!e.target.dataset.resOk });
+  if (error) return toast(error.message);
+  toast('Listo ✔'); cargarResenasAdmin(); cargarResumenPorque();
+});
 const NOMBRE_FUNCION = { chat: 'Chat', invitado: 'Invitados', biblioteca: 'Biblioteca / Mi día', busqueda: 'Búsqueda', imagen: 'Imágenes' };
 async function cargarConsumo() {
   if (DEMO) return;

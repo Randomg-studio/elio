@@ -10,7 +10,7 @@
 <link rel="apple-touch-icon" href="img/Elio_Icono-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="app.css?v=17">
+<link rel="stylesheet" href="app.css?v=18">
 </head>
 <body>
 <!-- Iconos (SVG reutilizables) -->
@@ -134,6 +134,7 @@
       <div class="menu-usuario vidrio oculto" id="menu-usuario" role="menu">
         <button id="ver-planes" role="menuitem">✦ Mejorar mi plan</button>
         <button id="ir-admin" role="menuitem" hidden>Panel de administración</button>
+        <button id="ver-resena" role="menuitem">Dejar mi reseña</button>
         <button id="ver-dispositivos" role="menuitem">Mis dispositivos</button>
         <button id="ver-compartir" role="menuitem" hidden>Compartir mi Ultra</button>
         <button id="ver-privacidad" role="menuitem">Privacidad y mis datos</button>
@@ -153,7 +154,7 @@
         <button class="icono redondo" id="apps" aria-label="Apps de FlexGo" aria-haspopup="menu"><svg><use href="#i-cuadros"/></svg></button>
         <div class="menu-apps vidrio oculto" id="menu-apps" role="menu">
           <p>Apps de FlexGo Group</p>
-          <a href="https://flexgogroup.com/kivo.html" target="_blank" rel="noopener" role="menuitem"><b>Kivo Agentes</b><small>Agentes de IA que atienden a tus clientes a toda hora</small></a>
+          <a href="https://flexgogroup.com/kivo.html" target="_blank" rel="noopener" role="menuitem"><b>Kivo Agentes</b><small>Agentes con tecnología neuronal que atienden a tus clientes a toda hora</small></a>
           <a href="https://flexgogroup.com/logrin.html" target="_blank" rel="noopener" role="menuitem"><b>Logrin</b><small>Ventas, inventario y cobros</small></a>
           <a href="https://flexgogroup.com/creago.html" target="_blank" rel="noopener" role="menuitem"><b>CreaGo</b><small>Contenido para redes con IA</small></a>
           <a href="https://logrin.flexgogroup.com/?mercadito" target="_blank" rel="noopener" role="menuitem"><b>Mi Mercadito</b><small>Tu tienda en línea para compartir por WhatsApp</small></a>
@@ -173,6 +174,7 @@
           <button class="vidrio" data-prompt="Quiero analizar unos datos. Explícame cómo puedo pasártelos (tabla, números o un archivo) y qué conclusiones podrías sacar."><span class="ico"><svg><use href="#i-barras"/></svg></span><b>Analizar datos</b><small>Interpreta información y obtén conclusiones.</small></button>
           <button class="vidrio" data-prompt="Dame 5 ideas creativas y prácticas. Antes, pregúntame sobre qué tema: mi negocio, mis estudios o un proyecto."><span class="ico"><svg><use href="#i-foco"/></svg></span><b>Explorar ideas</b><small>Descubre nuevas propuestas, enfoques y soluciones.</small></button>
         </div>
+        <button class="enlace-porque" id="abrir-porque" type="button">⭐ <span id="porque-resumen">Reseñas reales</span> · Compara Elio con ChatGPT y Claude →</button>
       </div>
       <div id="mensajes"></div>
     </div>
@@ -246,6 +248,48 @@
     <p class="aviso" id="pago-aviso"></p>
     <button class="boton principal grande" type="submit"><span>Ya yapeé · Enviar</span></button>
   </form>
+</div>
+
+<!-- Por qué Elio: comparativa y reseñas reales -->
+<div id="porque" class="modal oculto" role="dialog" aria-modal="true" aria-labelledby="porque-t">
+  <div class="modal-caja ancha vidrio">
+    <button class="icono cerrar" data-cerrar aria-label="Cerrar">✕</button>
+    <h2 id="porque-t">¿Por qué Elio?</h2>
+    <h3>Comparativa de precios</h3>
+    <div class="tabla-comp" role="table" aria-label="Comparativa de precios de los planes de pago">
+      <div class="fila cab" role="row"><span role="columnheader"></span><span role="columnheader">Elio Impulso</span><span role="columnheader">ChatGPT Plus</span><span role="columnheader">Claude Pro</span></div>
+      <div class="fila" role="row"><span role="rowheader">Precio al mes</span><span><b>S/ 56.99</b><small>IGV incluido</small></span><span>US$ 20<small>≈ S/ 75 (a S/ 3.75)</small></span><span>US$ 20<small>≈ S/ 75 (a S/ 3.75)</small></span></div>
+      <div class="fila" role="row"><span role="rowheader">Moneda</span><span>Soles</span><span>Dólares</span><span>Dólares</span></div>
+    </div>
+    <p class="nota">Precios mensuales publicados por cada empresa, revisados el 26 de noviembre de 2026 en chatgpt.com/pricing y claude.com/pricing. Pueden cambiar; revisa siempre su web. ChatGPT y Claude son marcas de sus dueños; FlexGo Group no tiene relación con ellos. Elio usa modelos de Anthropic (Claude) para responder.</p>
+    <h3>Lo que trae Elio</h3>
+    <ul class="mejora-lista">
+      <li>🇵🇪 Hecho en Perú, en español, con precios en soles y pago por Yape.</li>
+      <li>⚡ 4 motores (Chispa, Pulso, Órbita y Cumbre) y siempre ves cuántos créditos te quedan.</li>
+      <li>📚 Biblioteca con tus documentos, 📅 Mi día con tus pendientes y 🎓 Trabajos académicos (APA 7, Vancouver e ISO 690).</li>
+      <li>👥 Ultra para 2 personas, cada una con su cuenta y espacio privado.</li>
+    </ul>
+    <h3>Reseñas reales <small id="porque-prom"></small></h3>
+    <div id="porque-resenas" class="b-lista"></div>
+    <div class="a-fila fin"><button class="boton principal" type="button" id="porque-opinar">Dejar mi reseña</button></div>
+  </div>
+</div>
+
+<!-- Dejar mi reseña -->
+<div id="resena" class="modal oculto" role="dialog" aria-modal="true" aria-labelledby="resena-t">
+  <div class="modal-caja vidrio">
+    <button class="icono cerrar" data-cerrar aria-label="Cerrar">✕</button>
+    <h2 id="resena-t">Tu reseña de Elio</h2>
+    <p class="nota" id="resena-estado">Cuéntanos con sinceridad cómo te va con Elio. Revisamos cada reseña antes de mostrarla.</p>
+    <form id="resena-form">
+      <div class="estrellas-elegir" role="radiogroup" aria-label="Estrellas">
+        <label title="5 estrellas"><input type="radio" name="estrellas" value="5" required aria-label="5 estrellas"><span>★</span></label><label title="4 estrellas"><input type="radio" name="estrellas" value="4" aria-label="4 estrellas"><span>★</span></label><label title="3 estrellas"><input type="radio" name="estrellas" value="3" aria-label="3 estrellas"><span>★</span></label><label title="2 estrellas"><input type="radio" name="estrellas" value="2" aria-label="2 estrellas"><span>★</span></label><label title="1 estrella"><input type="radio" name="estrellas" value="1" aria-label="1 estrella"><span>★</span></label>
+      </div>
+      <textarea id="resena-texto" rows="4" minlength="10" maxlength="500" required placeholder="¿Qué te gusta de Elio y qué mejorarías?"></textarea>
+      <label class="check"><input type="checkbox" id="resena-publicar" required> Permito que FlexGo Group muestre mi reseña con mi primer nombre y la inicial de mi apellido.</label>
+      <div class="a-fila fin"><button class="boton" type="button" id="resena-borrar" hidden>Borrar mi reseña</button><button class="boton principal" type="submit">Enviar reseña</button></div>
+    </form>
+  </div>
 </div>
 
 <!-- Mis dispositivos -->
@@ -451,6 +495,8 @@
     <div id="admin-pagos"></div>
     <h3>Consumo de IA (últimos 7 días)</h3>
     <div id="admin-consumo"></div>
+    <h3>Reseñas</h3>
+    <div id="admin-resenas"></div>
     <h3>Encuesta</h3>
     <div id="admin-encuesta"></div>
     <h3>Intereses (últimos 30 días, solo de quienes dieron permiso)</h3>
@@ -460,6 +506,6 @@
 
 <div id="toast" role="status"></div>
 <script src="config.js?v=1"></script>
-<script type="module" src="app.js?v=21"></script>
+<script type="module" src="app.js?v=22"></script>
 </body>
 </html>
