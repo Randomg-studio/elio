@@ -39,6 +39,9 @@ const GEMINI_MODELOS = (Deno.env.get("MODELO_GEMINI") ?? "gemini-3.1-flash-lite"
 const GEMINI_PRECIO = { pin: 0.25, pout: 1.5 }; // Gemini 3.1 Flash-Lite, nivel de pago (ai.google.dev/pricing, 26-nov-2026)
 
 const TOPE_LIBRE = Number(Deno.env.get("TOPE_LIBRE_USD") ?? "1");
+// Plan Libre: 3 fotos por semana por persona y un tope GLOBAL diario solo para esas fotos (contra cuentas múltiples)
+const TOPE_FOTOS_LIBRE = Number(Deno.env.get("TOPE_FOTOS_LIBRE_USD") ?? "0.30");
+const MAX_FOTO_LIBRE = 2_800_000;   // ≈ 2 MB en base64 (la web ya la achica a 1600 px en JPG)
 const TOPE_TOTAL = Number(Deno.env.get("TOPE_TOTAL_USD") ?? "15");
 const ORIGENES = (Deno.env.get("ORIGENES") ?? "https://elio.flexgogroup.com,https://randomg-studio.github.io,http://localhost:8790")
   .split(",").map((s) => s.trim()).filter(Boolean);
@@ -361,8 +364,13 @@ Deno.serve(async (req) => {
   const plan: Plan = (planDb as Plan) ?? "libre";
   const nombrePlan = { libre: "Libre", impulso: "Impulso", ultra: "Ultra" }[plan];
   const hora = (t: string | null) => t ? new Date(t).toLocaleString("es-PE", { timeZone: "America/Lima", weekday: "long", hour: "2-digit", minute: "2-digit" }) : "pronto";
-  if ((cuerpo.adjunto || cuerpo.documento) && !ADJUNTOS[plan])
-    return json(c, 403, { mensaje: "Subir archivos e imágenes está en los planes Impulso y Ultra.", codigo: "cupo" });
+  if ((cuerpo.adjunto || cuerpo.documento) && !ADJUNTOS[plan]) {
+    if (cuerpo.documento || !String(cuerpo.adjunto?.tipo ?? "").startsWith("image/"))
+      return json(c, 403, { mensaje: "En el plan Libre puedes subir fotos (3 por semana). Los PDF y documentos están en Impulso y Ultra.", codigo: "cupo", mejora: true });
+    if (String(cuerpo.adjunto?.datos ?? "").length > MAX_FOTO_LIBRE)
+      return json(c, 400, { mensaje: "La foto es muy pesada para el plan Libre (máximo 2 MB). Tómala de nuevo o súbela más pequeña." });
+  }
+  const fotoLibre = plan === "libre" && !!cuerpo.adjunto;
   if (plan === "libre" && gasto && Number(gasto.libre_usd) >= TOPE_LIBRE)
     return json(c, 503, { mensaje: "Los mensajes gratis de hoy se agotaron para todos. Vuelve mañana o pásate a Impulso.", codigo: "tope_libre" });
 
@@ -450,6 +458,18 @@ Deno.serve(async (req) => {
       : tipoErr.includes("SEMANA") ? `Usaste los créditos de esta semana. Se renuevan el ${hora(cuando)}.` : "No pude revisar tus créditos. Inténtalo de nuevo.";
     return json(c, tipoErr.includes("MOTOR") ? 403 : 429, { mensaje: msg.replace(/\.\.(\s|$)/g, ".$1"), codigo: "cupo", mejora: plan === "libre" });
   }
+  // Foto en Libre: se aparta del cupo semanal y del tope global ANTES de llamar a la IA
+  let fotoId: number | null = null;
+  if (fotoLibre) {
+    const { data: fid, error: errFoto } = await admin.rpc("elio_reservar_foto_libre", { u: user.id, tope: TOPE_FOTOS_LIBRE, cupo: 3 });
+    if (errFoto) {
+      await admin.rpc("elio_cobrar_consumo", { c: consumoId, costo: 0, creditos: 0 });   // se devuelven los créditos
+      return String(errFoto.message).includes("SEMANA")
+        ? json(c, 429, { mensaje: "Ya usaste tus 3 fotos gratis de esta semana. Vuelven el lunes, o pasa a Impulso para subir fotos y PDF.", codigo: "cupo", mejora: true })
+        : json(c, 503, { mensaje: "Las fotos gratis de hoy se agotaron. Vuelve mañana o pasa a Impulso.", codigo: "tope_libre", mejora: true });
+    }
+    fotoId = Number(fid);
+  }
   await admin.rpc("elio_sumar_uso", { u: user.id, nivel, costo: 0, es_libre: plan === "libre" }); // estadística antigua (mensajes por día)
 
   if (!convId) {
@@ -496,6 +516,7 @@ Deno.serve(async (req) => {
         await admin.rpc("elio_sumar_uso", { u: user.id, nivel: "costo", costo, es_libre: plan === "libre" }); // solo suma el costo
         const usados = respuesta ? creditosDe(motor, costo) : 0;   // créditos REALES de este mensaje
         await admin.rpc("elio_cobrar_consumo", { c: consumoId, costo, creditos: usados });
+        if (fotoId) await admin.rpc("elio_cobrar_foto_libre", { f: fotoId, costo: respuesta ? costo : -1 });
         const { data: cred } = await admin.rpc("elio_creditos", { u: user.id });
         enviar({ tipo: "creditos", estado: cred, usados, minimo: M.creditos });
         enviar({ tipo: "fin" });
@@ -511,6 +532,7 @@ Deno.serve(async (req) => {
       } catch (e) {
         console.error("elio-chat", e instanceof Anthropic.APIError ? `${e.status} ${e.message}` : e);
         if (!respuesta) await admin.rpc("elio_cobrar_consumo", { c: consumoId, costo: 0, creditos: 0 }); // si no hubo respuesta, se devuelven los créditos
+        if (!respuesta && fotoId) await admin.rpc("elio_cobrar_foto_libre", { f: fotoId, costo: -1 });   // y la foto
         const msg = e instanceof Anthropic.RateLimitError ? "Hay mucha demanda. Espera unos segundos e inténtalo de nuevo."
           : e instanceof Anthropic.AuthenticationError ? "Elio está en mantenimiento. Inténtalo en un rato."
           : "No pude responder esta vez. Inténtalo de nuevo.";
