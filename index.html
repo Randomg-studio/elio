@@ -79,6 +79,7 @@
         <button class="enlace" type="button" id="olvide">¿Olvidaste tu contraseña?</button>
       </div>
       <label class="check terminos solo-registro"><input type="checkbox" name="terminos"><span>Acepto los <a href="terminos.html" target="_blank">Términos</a> y la <a href="privacidad.html" target="_blank">Política de privacidad</a>. Si soy menor de 18 años, tengo permiso de mi madre, padre o tutor.</span></label>
+      <label class="check terminos solo-registro"><input type="checkbox" name="mejora"><span><b>En el plan gratis guardamos tus conversaciones y las usamos para mejorar Elio. Pueden ser revisadas por nuestro equipo. No escribas datos sensibles.</b> Se guardan sin claves ni datos bancarios, por 18 meses, nunca se venden y se borran si borras tu cuenta. Tengo 14 años o más. <a href="privacidad.html#mejora" target="_blank">Más detalles</a></span></label>
       <label class="check terminos opcional solo-registro"><input type="checkbox" name="aprende"><span>Opcional: acepto que Elio aprenda mis intereses (sin datos sensibles) para recomendarme mejor. Puedo verlo, borrarlo o apagarlo cuando quiera.</span></label>
       <label class="check terminos opcional solo-registro"><input type="checkbox" name="ofertas"><span>Opcional: acepto recibir ofertas de los servicios de FlexGo Group.</span></label>
       <p class="aviso" id="acceso-aviso" role="alert"></p>
@@ -577,6 +578,26 @@
   </form>
 </aside>
 
+<!-- Aviso del plan gratis: uso de conversaciones para mejorar Elio -->
+<div id="mejora" class="modal oculto" role="dialog" aria-modal="true" aria-labelledby="mejora-t">
+  <div class="modal-caja vidrio">
+    <h2 id="mejora-t">Un aviso importante del plan gratis</h2>
+    <p><b>En el plan gratis guardamos tus conversaciones y las usamos para mejorar Elio. Pueden ser revisadas por nuestro equipo. No escribas datos sensibles.</b></p>
+    <ul class="nota">
+      <li>Se guardan sin claves, tarjetas ni cuentas bancarias (nuestro escudo las tapa antes).</li>
+      <li>Se usan para mejorar respuestas, temas y errores, y para entrenar mejoras propias de Elio.</li>
+      <li>Se guardan 18 meses y se borran si borras tu cuenta. Nunca se venden ni se dan a otros para publicidad.</li>
+      <li>No los usamos para perfilarte por salud, religión, política ni vida sexual.</li>
+      <li>En los planes de pago (Impulso y Ultra) no guardamos tus conversaciones para esto, salvo que tú lo actives.</li>
+    </ul>
+    <form id="mejora-form">
+      <label class="check"><input type="checkbox" id="mejora-ok"> Acepto este uso de mis conversaciones en el plan gratis. Tengo 14 años o más.</label>
+      <p class="nota">Detalles y tus derechos en la <a href="privacidad.html#mejora" target="_blank">Política de privacidad</a>. Este aviso no se aplica a conversaciones anteriores.</p>
+      <div class="a-fila fin"><button class="boton" type="button" id="mejora-planes">Ver planes de pago</button><button class="boton principal" type="submit">Acepto y sigo</button></div>
+    </form>
+  </div>
+</div>
+
 <!-- Privacidad y mis datos (derechos ARCO, Ley 29733) -->
 <div id="privacidad" class="modal oculto" role="dialog" aria-modal="true" aria-labelledby="privacidad-t">
   <div class="modal-caja ancha vidrio">
@@ -584,6 +605,8 @@
     <h2 id="privacidad-t">Privacidad y mis datos</h2>
     <p class="nota">Tú decides. Elio nunca guarda datos sensibles (salud, religión, política, vida sexual, origen ni datos de menores) y lo que aprende se borra solo a los 12 meses.</p>
     <label class="interruptor"><input type="checkbox" id="p-aprende"><span><b>Que Elio aprenda mis intereses</b><small>Guarda etiquetas cortas (por ejemplo «bodega · ventas») para recomendarte mejor. Si lo apagas, se borra todo lo aprendido.</small></span></label>
+    <label class="interruptor" id="p-mejora-fila" hidden><input type="checkbox" id="p-mejora"><span><b>Ayúdanos a mejorar Elio</b><small>Opcional en Impulso y Ultra: guardamos tus conversaciones (sin claves ni datos bancarios) por 18 meses para mejorar Elio; el equipo puede revisarlas. Si lo apagas, se borran las que compartiste.</small></span></label>
+    <p class="nota" id="p-mejora-libre" hidden>Plan gratis: tus conversaciones se guardan y se usan para mejorar Elio (lo aceptaste al entrar). Si prefieres que no, pásate a Impulso o Ultra.</p>
     <label class="interruptor"><input type="checkbox" id="p-ofertas"><span><b>Recibir ofertas de FlexGo Group</b><small>Podremos escribirte sobre servicios que encajan con lo que buscas.</small></span></label>
     <h3>Lo que Elio sabe de ti</h3>
     <div id="p-lista" class="p-lista"></div>
@@ -634,6 +657,6 @@
 
 <div id="toast" role="status"></div>
 <script src="config.js?v=1"></script>
-<script type="module" src="app.js?v=33"></script>
+<script type="module" src="app.js?v=34"></script>
 </body>
 </html>

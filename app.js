@@ -7,6 +7,7 @@ const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 const CFG = window.ELIO_CONFIG || {};
 try { const p = new URLSearchParams(location.search).get('pedir'); if (p) localStorage.setItem('elio-pedir', p.slice(0, 80)); } catch {}
+const MEJORA_VERSION = '2026-11-27';   // versión del aviso «guardamos tus conversaciones para mejorar Elio» (plan Libre)
 const DEMO = !CFG.SUPABASE_URL && location.hostname === 'localhost' && location.search.includes('demo');
 const VOLVER = location.hostname === 'localhost' ? location.origin + '/' : CFG.SITIO;
 const PRECIOS = { impulso: 56.99, ultra: 159.99 };   // con IGV incluido
@@ -73,6 +74,7 @@ $('#f-acceso').addEventListener('submit', async (e) => {
   if (modo !== 'olvido' && clave.length < 8) { aviso.textContent = 'La contraseña debe tener al menos 8 caracteres.'; return; }
   if (modo === 'registro' && nombre.length < 2) { aviso.textContent = 'Escribe tu nombre.'; return; }
   if (modo === 'registro' && !f.terminos.checked) { aviso.textContent = 'Para crear tu cuenta, acepta los Términos y la Política de privacidad.'; return; }
+  if (modo === 'registro' && !f.mejora.checked) { aviso.textContent = 'Para usar el plan gratis, acepta el aviso sobre cómo usamos las conversaciones para mejorar Elio.'; return; }
   btn.disabled = true;
   try {
     if (modo === 'entrar') {
@@ -80,7 +82,7 @@ $('#f-acceso').addEventListener('submit', async (e) => {
       const { error } = await sb.auth.signInWithPassword({ email: correo, password: clave });
       if (error) throw new Error(/confirm/i.test(error.message) ? 'Primero confirma tu correo: revisa tu bandeja (y la carpeta de spam).' : 'Correo o contraseña incorrectos.');
     } else if (modo === 'registro') {
-      const { data, error } = await sb.auth.signUp({ email: correo, password: clave, options: { data: { nombre, acepto: true, aprende: f.aprende.checked, ofertas: f.ofertas.checked }, emailRedirectTo: VOLVER } });
+      const { data, error } = await sb.auth.signUp({ email: correo, password: clave, options: { data: { nombre, acepto: true, mejora: MEJORA_VERSION, aprende: f.aprende.checked, ofertas: f.ofertas.checked }, emailRedirectTo: VOLVER } });
       if (error) throw new Error(/registered|exists/i.test(error.message) ? 'Ese correo ya tiene cuenta. Inicia sesión.' : 'No se pudo crear la cuenta: ' + error.message);
       if (!data.session) { modoAcceso('entrar'); aviso.classList.add('ok'); aviso.textContent = '¡Cuenta creada! Confirma tu correo (revisa también spam) y luego inicia sesión.'; }
     } else {
@@ -176,6 +178,7 @@ async function entrarApp() {
   await revisarPlanLogrin();
   await cargarEstado();
   if (sb && E.estado && !E.estado.acepto && E.sesion?.user?.user_metadata?.acepto) await sb.rpc('elio_aceptar_terminos');
+  await revisarMejora();
   await cargarChats();
   nuevoChat();
   ponerPreguntaPedir();
@@ -201,6 +204,24 @@ async function revisarPlanLogrin() {
   if (Date.now() - ultima < 6 * 3600_000) return;
   try { await llamarLogrin({ accion: 'estado' }); localStorage.setItem('elio-logrin-revisado', String(Date.now())); } catch {}
 }
+// Plan Libre: aceptar el aviso de uso de conversaciones. Al crear la cuenta ya se aceptó (casilla); las cuentas antiguas lo ven al entrar.
+async function revisarMejora() {
+  if (!sb || DEMO) return;
+  const { data: m } = await sb.rpc('elio_mi_mejora'); if (!m) return;
+  E.mejora = m;
+  if (m.plan !== 'libre' || (m.acepto && m.version === MEJORA_VERSION)) return;
+  if (E.sesion?.user?.user_metadata?.mejora === MEJORA_VERSION) { await sb.rpc('elio_aceptar_mejora', { version: MEJORA_VERSION }); E.mejora.acepto = true; E.mejora.version = MEJORA_VERSION; return; }
+  $('#mejora').classList.remove('oculto');
+}
+$('#mejora-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (!$('#mejora-ok').checked) return toast('Marca la casilla para continuar con el plan gratis.');
+  const { error } = await sb.rpc('elio_aceptar_mejora', { version: MEJORA_VERSION });
+  if (error) return toast('No se pudo guardar. Inténtalo de nuevo.');
+  if (E.mejora) { E.mejora.acepto = true; E.mejora.version = MEJORA_VERSION; }
+  $('#mejora').classList.add('oculto'); toast('Listo ✔ Gracias por ayudarnos a mejorar Elio.');
+});
+$('#mejora-planes').addEventListener('click', () => { $('#mejora').classList.add('oculto'); abrirPlanes(); });
 async function cargarEstado() {
   if (sb) { const { data } = await sb.rpc('elio_mi_estado'); E.estado = data; }
   const s = E.estado; if (!s) return;
@@ -428,6 +449,7 @@ async function enviar(texto, adjunto) {
       if (j.mejora || j.codigo === 'tope_libre') abrirMejora(j.mensaje);
       if (j.codigo === 'dispositivo') abrirDispositivos(j.mensaje);
       if (j.codigo === 'proyecto_cerrado') abrirProyectos();
+      if (j.codigo === 'mejora') $('#mejora').classList.remove('oculto');
       return;
     }
     const lector = r.body.getReader(), dec = new TextDecoder(); let buf = '', fallo = null, midNuevo = null;
@@ -1462,6 +1484,12 @@ $('#ver-privacidad').addEventListener('click', abrirPrivacidad);
 async function abrirPrivacidad() {
   $('#menu-usuario').classList.add('oculto');
   $('#privacidad').classList.remove('oculto');
+  if (sb && !DEMO) {   // «Ayúdanos a mejorar»: voluntario en los planes de pago; informativo en Libre
+    const { data: m } = await sb.rpc('elio_mi_mejora');
+    const libre = (m?.plan || 'libre') === 'libre';
+    $('#p-mejora-fila').hidden = libre; $('#p-mejora-libre').hidden = !libre;
+    $('#p-mejora').checked = !!m?.voluntaria;
+  }
   $('#p-lista').innerHTML = '<p class="nota">Cargando…</p>';
   if (DEMO) misDatos = { aprende: true, acepta_ofertas: false, intereses: [{ fecha: new Date().toISOString(), rubro: 'bodega', tema: 'ventas', necesidad: 'vender más por whatsapp', servicio: 'kivo' }], recomendaciones: [] };
   else { const r = await sb.rpc('elio_mi_privacidad'); if (r.error) { $('#p-lista').innerHTML = '<p class="nota">No se pudo cargar. Inténtalo de nuevo.</p>'; return; } misDatos = r.data; }
@@ -1477,6 +1505,13 @@ async function guardarPermisos() {
   toast('Preferencias guardadas ✔'); abrirPrivacidad();
 }
 $('#p-aprende').addEventListener('change', guardarPermisos);
+$('#p-mejora').addEventListener('change', async () => {
+  const activar = $('#p-mejora').checked;
+  if (!activar && !confirm('Al apagarlo se borran las conversaciones que compartiste para mejorar Elio. ¿Continuar?')) { $('#p-mejora').checked = true; return; }
+  const { error } = await sb.rpc('elio_mejora_voluntaria', { activar });
+  if (error) { $('#p-mejora').checked = !activar; return toast('No se pudo guardar. Inténtalo de nuevo.'); }
+  toast(activar ? '¡Gracias! Nos ayudas a mejorar Elio ✔' : 'Listo ✔ Ya no se guardan tus conversaciones para mejorar Elio.');
+});
 $('#p-ofertas').addEventListener('change', guardarPermisos);
 $('#p-borrar').addEventListener('click', async () => {
   if (!confirm('¿Borrar todo lo que Elio aprendió de ti? No se puede deshacer.')) return;
