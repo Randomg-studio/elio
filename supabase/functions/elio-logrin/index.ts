@@ -5,8 +5,8 @@
 //   { accion: "revocar" }                      → quita el enlace (aquí y en Logrin)
 //   { accion: "leer_foto", imagen, tipo }      → la IA lee la foto y arma una lista PROPUESTA (gasta créditos del plan)
 //   { accion: "proponer", propuesta, items }   → envía la lista ya revisada a Logrin, donde queda «Por confirmar»
-// Desde Logrin (sin sesión, solo con la firma x-puente-ts / x-puente-firma):
-//   { accion: "plan", enlace_id, activo, plan: "ultra", vence, id_peticion, creado } → «Elio para Logrin» (Ultra para 2 del negocio)
+// «Elio para Logrin» (Ultra para 2 del negocio): Logrin NO empuja el plan; viene en cada respuesta del puente
+//   ({activo, plan, vence}) y «estado» lo vuelve a preguntar a Logrin como máximo cada 6 horas.
 // Contrato fijo con Logrin (26-nov-2026): firma x-puente-firma = HMAC-SHA256(secreto, ts + "." + cuerpo) en hex y x-puente-ts (ms).
 // Elio NUNCA escribe stock ni ve precios. Logrin vuelve a validar todo y el dueño acepta con Sí o No.
 // Secretos (los pone el dueño): ANTHROPIC_API_KEY, LOGRIN_INVENTARIO_SECRETO. Opcional: LOGRIN_INVENTARIO_URL, ORIGENES.
@@ -67,37 +67,21 @@ async function puente(datos: Record<string, unknown>): Promise<{ status: number;
     return { status: r.status, j: await r.json().catch(() => ({})) };
   } catch (e) { console.warn("puente-inventario", String(e)); return { status: 502, j: { ok: false, motivo: "sin_conexion" } }; }
 }
-// ---------- Lo que llega DESDE Logrin: el plan de «Elio para Logrin» ----------
-function igual(a: string, b: string) {   // comparación en tiempo constante
-  if (a.length !== b.length) return false;
-  let d = 0; for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return d === 0;
+// ---------- Plan «Elio para Logrin»: cada respuesta del puente trae {activo, plan, vence} ----------
+// Elio lo guarda aparte y usa el plan MÁS ALTO. Si activo es false o pasa «vence», la cuenta vuelve sola a su plan propio.
+async function alPuente(usuario: string, datos: Record<string, unknown>) {
+  const res = await puente(datos);
+  await aplicarPlan(usuario, res.status, res.j);
+  return res;
 }
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-async function desdeLogrin(req: Request): Promise<Response> {
-  const r = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
-  if (!SECRETO) return r(503, { ok: false, motivo: "sin_secreto" });
-  const ts = req.headers.get("x-puente-ts") ?? "", firma = (req.headers.get("x-puente-firma") ?? "").toLowerCase();
-  const cuerpo = await req.text();
-  if (cuerpo.length > 4000) return r(400, { ok: false, motivo: "invalido" });
-  if (!/^\d{13}$/.test(ts) || Math.abs(Date.now() - Number(ts)) > 5 * 60_000) return r(401, { ok: false, motivo: "firma" });
-  if (!igual(await firmar(ts, cuerpo), firma)) return r(401, { ok: false, motivo: "firma" });
-  let b: Record<string, unknown>;
-  try { b = JSON.parse(cuerpo); } catch { return r(400, { ok: false, motivo: "invalido" }); }
-  if (b.accion !== "plan") return r(400, { ok: false, motivo: "invalido" });
-  const enlaceId = typeof b.enlace_id === "string" ? b.enlace_id : "";
-  const vence = new Date(String(b.vence ?? "")), activo = b.activo === true;
-  if (enlaceId.length < 8 || enlaceId.length > 80 || typeof b.activo !== "boolean" || !UUID.test(String(b.id_peticion ?? ""))) return r(400, { ok: false, motivo: "invalido" });
-  if (activo && (b.plan !== "ultra" || isNaN(vence.getTime()) || vence.getTime() < Date.now() || vence.getTime() > Date.now() + 40 * 86400_000)) return r(400, { ok: false, motivo: "invalido" });
-  const { error: rep } = await admin.from("logrin_peticiones").insert({ id: String(b.id_peticion) });
-  if (rep) return rep.code === "23505" ? r(200, { ok: true, repetida: true }) : r(500, { ok: false, motivo: "error" });
-  const { data, error } = await admin.from("logrin_enlaces")
-    .update({ plan_logrin: activo ? "ultra" : null, plan_vence: activo ? vence.toISOString() : null })
-    .eq("enlace_id", enlaceId).select("usuario");
-  if (error) return r(500, { ok: false, motivo: "error" });
-  if (!data?.length) return r(404, { ok: false, motivo: "enlace_desconocido" });
-  admin.from("logrin_peticiones").delete().lt("recibido", new Date(Date.now() - 7 * 86400_000).toISOString()).then(() => {});
-  return r(200, { ok: true });
+async function aplicarPlan(usuario: string, status: number, j: Record<string, unknown>) {
+  if (status === 410 || j.motivo === "enlace_revocado") {
+    await admin.from("logrin_enlaces").delete().eq("usuario", usuario);
+  } else if (typeof j.activo === "boolean") {
+    const vence = new Date(String(j.vence ?? ""));
+    const vale = j.activo === true && j.plan === "ultra" && !isNaN(vence.getTime()) && vence.getTime() > Date.now() && vence.getTime() < Date.now() + 40 * 86400_000;
+    await admin.from("logrin_enlaces").update({ plan_logrin: vale ? "ultra" : null, plan_vence: vale ? vence.toISOString() : null, plan_revisado: new Date().toISOString() }).eq("usuario", usuario);
+  }
 }
 
 const MOTIVOS: Record<string, string> = {
@@ -107,13 +91,17 @@ const MOTIVOS: Record<string, string> = {
   enlace_revocado: "La conexión con tu negocio se quitó desde Logrin. Conéctate de nuevo con un código nuevo.",
   sin_secreto: "La conexión con Logrin todavía no está activada. Muy pronto.",
   sin_conexion: "Logrin no respondió. Inténtalo en unos minutos.",
+  sin_configurar: "La conexión con Logrin todavía no está activada. Muy pronto.",
+  sin_permiso: "El dueño del negocio no te dio permiso para esto en Logrin.",
+  repetido: "Ese pedido ya llegó a Logrin.",
+  firma: "Logrin no reconoció a Elio. Avísale a FlexGo Group.",
+  tiempo: "La hora de tu pedido no coincide. Inténtalo de nuevo.",
 };
 
 Deno.serve(async (req) => {
   const c = cors(req.headers.get("origin"));
   if (req.method === "OPTIONS") return new Response("ok", { headers: c });
   if (req.method !== "POST") return json(c, 405, { mensaje: "Método no permitido" });
-  if (req.headers.get("x-puente-firma")) return await desdeLogrin(req);   // viene de Logrin, no de una persona
 
   const jwt = (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "");
   const user = jwt.split(".").length === 3 ? (await admin.auth.getUser(jwt)).data?.user ?? null : null;
@@ -123,10 +111,18 @@ Deno.serve(async (req) => {
 
   let b: { accion?: string; codigo?: string; imagen?: string; tipo?: string; propuesta?: string; items?: unknown };
   try { b = await req.json(); } catch { return json(c, 400, { mensaje: "Pedido inválido." }); }
-  const { data: enlace } = await admin.from("logrin_enlaces").select("enlace_id,negocio_nombre").eq("usuario", user.id).maybeSingle();
+  const { data: enlace } = await admin.from("logrin_enlaces").select("enlace_id,negocio_nombre,plan_revisado").eq("usuario", user.id).maybeSingle();
 
   // ---------- Estado ----------
-  if (b.accion === "estado") return json(c, 200, { enlazado: !!enlace, negocio: enlace?.negocio_nombre ?? null });
+  if (b.accion === "estado") {
+    if (!enlace) return json(c, 200, { enlazado: false, negocio: null });
+    const antiguo = !enlace.plan_revisado || Date.now() - new Date(enlace.plan_revisado).getTime() > 6 * 3600_000;
+    if (antiguo) {
+      const { status } = await alPuente(user.id, { accion: "estado", enlace_id: enlace.enlace_id, id_peticion: crypto.randomUUID() });
+      if (status === 410) return json(c, 200, { enlazado: false, negocio: null, revocado: true });
+    }
+    return json(c, 200, { enlazado: true, negocio: enlace.negocio_nombre });
+  }
 
   // ---------- Enlazar con el código de Logrin ----------
   if (b.accion === "enlazar") {
@@ -137,7 +133,8 @@ Deno.serve(async (req) => {
     await admin.from("consumo").insert({ usuario: user.id, motor: "chispa", funcion: "inventario", creditos: 0 });   // freno de intentos
     const { status, j } = await puente({ accion: "enlazar", codigo });
     if (status !== 200 || !j.ok || typeof j.enlace_id !== "string") return json(c, 400, { mensaje: MOTIVOS[String(j.motivo)] ?? MOTIVOS.codigo });
-    await admin.from("logrin_enlaces").upsert({ usuario: user.id, enlace_id: limpio(j.enlace_id, 80), negocio_nombre: limpio(j.negocio_nombre, 120) || "Mi negocio", creado: new Date().toISOString() });
+    await admin.from("logrin_enlaces").upsert({ usuario: user.id, enlace_id: limpio(j.enlace_id, 80), negocio_nombre: limpio(j.negocio_nombre, 120) || "Mi negocio", creado: new Date().toISOString(), plan_logrin: null, plan_vence: null, plan_revisado: null });
+    await aplicarPlan(user.id, status, j);   // la respuesta de enlazar ya trae {activo, plan, vence}
     return json(c, 200, { ok: true, negocio: limpio(j.negocio_nombre, 120) || "Mi negocio" });
   }
 
@@ -145,7 +142,7 @@ Deno.serve(async (req) => {
 
   // ---------- Quitar la conexión ----------
   if (b.accion === "revocar") {
-    await puente({ accion: "revocar", enlace_id: enlace.enlace_id });   // aunque Logrin no responda, aquí se quita
+    await puente({ accion: "revocar", enlace_id: enlace.enlace_id, id_peticion: crypto.randomUUID() });   // aunque Logrin no responda, aquí se quita
     await admin.from("logrin_enlaces").delete().eq("usuario", user.id);
     return json(c, 200, { ok: true });
   }
@@ -222,11 +219,10 @@ Deno.serve(async (req) => {
     const { data: prop } = await admin.from("inventario_propuestas").select("id,estado").eq("id", String(b.propuesta ?? "")).eq("usuario", user.id).maybeSingle();
     if (!prop) return json(c, 404, { mensaje: "No encontré esa lista. Toma la foto de nuevo." });
     if (prop.estado === "enviada") return json(c, 409, { mensaje: "Esta lista ya se envió a Logrin." });
-    const { status, j } = await puente({ accion: "proponer", enlace_id: enlace.enlace_id, id_propuesta: prop.id, creado: new Date().toISOString(), origen: "foto", items });
+    const { status, j } = await alPuente(user.id, { accion: "proponer", enlace_id: enlace.enlace_id, id_propuesta: prop.id, creado: new Date().toISOString(), origen: "foto", items });
     const ok = status === 200 && j.ok === true;
     await admin.from("inventario_propuestas").update({ items, estado: ok ? "enviada" : "error", respuesta: j, enviada: ok ? new Date().toISOString() : null }).eq("id", prop.id);
     if (!ok) {
-      if (j.motivo === "enlace_revocado") await admin.from("logrin_enlaces").delete().eq("usuario", user.id);
       return json(c, status === 429 ? 429 : 400, { mensaje: MOTIVOS[String(j.motivo)] ?? MOTIVOS.invalido });
     }
     return json(c, 200, { ok: true, negocio: enlace.negocio_nombre });

@@ -33,18 +33,12 @@ alter table public.consumo drop constraint if exists consumo_funcion_check;
 alter table public.consumo add constraint consumo_funcion_check check (funcion in ('chat','invitado','biblioteca','busqueda','imagen','probadita','inventario'));
 
 -- ===== «Elio para Logrin»: el plan llega desde Logrin (26-nov) =====
--- Logrin manda {accion:"plan", enlace_id, activo, plan:"ultra", vence} firmado. Elio lo guarda aparte y usa el plan MÁS ALTO.
+-- Cada respuesta del puente de Logrin trae {activo, plan:"ultra", vence}. Elio lo guarda aparte y usa el plan MÁS ALTO.
 -- Si llega activo:false o pasa la fecha «vence», la cuenta vuelve sola a su plan propio.
 alter table public.logrin_enlaces add column if not exists plan_logrin text check (plan_logrin in ('ultra'));
 alter table public.logrin_enlaces add column if not exists plan_vence timestamptz;
+alter table public.logrin_enlaces add column if not exists plan_revisado timestamptz;
 create unique index if not exists logrin_enlaces_enlace on public.logrin_enlaces (enlace_id);
-
--- Peticiones ya recibidas (no se aplica dos veces la misma). Solo el servidor la usa.
-create table if not exists public.logrin_peticiones (
-  id uuid primary key,
-  recibido timestamptz not null default now()
-);
-alter table public.logrin_peticiones enable row level security;
 
 create or replace function public.elio_plan_logrin(u uuid) returns text
 language sql stable security definer set search_path = public as $$
@@ -73,9 +67,8 @@ language sql stable security definer set search_path = public as $$
 $$;
 revoke all on function public.elio_comparte(uuid) from public, anon, authenticated;
 
--- Comprobación: 5 filas en «true»
+-- Comprobación: 4 filas en «true»
 select 'enlaces_rls' as que, (select rowsecurity from pg_tables where schemaname='public' and tablename='logrin_enlaces') as ok
 union all select 'propuestas_rls', (select rowsecurity from pg_tables where schemaname='public' and tablename='inventario_propuestas')
 union all select 'consumo_inventario', pg_get_constraintdef((select oid from pg_constraint where conname='consumo_funcion_check')) like '%inventario%'
-union all select 'plan_logrin', exists (select 1 from information_schema.columns where table_schema='public' and table_name='logrin_enlaces' and column_name='plan_vence')
-union all select 'peticiones_rls', (select rowsecurity from pg_tables where schemaname='public' and tablename='logrin_peticiones');
+union all select 'plan_logrin', exists (select 1 from information_schema.columns where table_schema='public' and table_name='logrin_enlaces' and column_name='plan_revisado');
