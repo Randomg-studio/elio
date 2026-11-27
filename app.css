@@ -453,7 +453,7 @@ body.es-invitado .enc-vincular{display:none}
 #resena-texto{width:100%;box-sizing:border-box;background:rgba(255,255,255,.05);border:1px solid var(--linea);border-radius:12px;color:var(--texto);padding:9px 12px;font:inherit;font-size:14px;resize:vertical}
 #resena .check{display:flex;gap:8px;align-items:flex-start;font-size:13px;color:var(--suave);margin:10px 0}
 @media(max-width:560px){.tabla-comp{font-size:12px}.tabla-comp .fila span{padding:7px 6px}}
-#resena-borrar[hidden],#ver-compartir[hidden]{display:none}
+#resena-borrar[hidden],#ver-compartir[hidden],#ver-inventario[hidden]{display:none}
 
 /* v19: aviso de cookies y celdas unidas de la comparativa */
 .aviso-cookies{position:fixed;left:50%;top:64px;transform:translateX(-50%);z-index:60;width:min(680px,calc(100% - 32px));display:flex;gap:12px;align-items:center;padding:10px 14px;border-radius:16px;font-size:13px;box-sizing:border-box}
