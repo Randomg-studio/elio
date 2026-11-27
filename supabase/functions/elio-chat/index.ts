@@ -210,7 +210,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: c });
   if (req.method !== "POST") return json(c, 405, { mensaje: "Método no permitido" });
 
-  let cuerpo: { conversacion?: string; texto?: string; nivel?: string; motor?: string; invitado?: boolean; historial?: { rol: string; contenido: string }[]; adjunto?: { tipo: string; nombre: string; datos: string }; documento?: string };
+  let cuerpo: { conversacion?: string; texto?: string; nivel?: string; motor?: string; invitado?: boolean; historial?: { rol: string; contenido: string }[]; adjunto?: { tipo: string; nombre: string; datos: string }; documento?: string; proyecto?: string };
   try { cuerpo = await req.json(); } catch { return json(c, 400, { mensaje: "Pedido inválido." }); }
   const texto = String(cuerpo.texto ?? "").trim();
   if (!texto && !cuerpo.adjunto && !cuerpo.documento) return json(c, 400, { mensaje: "Escribe un mensaje." });
@@ -301,8 +301,24 @@ Deno.serve(async (req) => {
   let convId = cuerpo.conversacion;
   let docsConv: string[] = [];
   if (convId) {
-    const { data: conv } = await admin.from("conversaciones").select("id,documentos").eq("id", convId).eq("usuario", user.id).maybeSingle();
+    const { data: conv } = await admin.from("conversaciones").select("id,documentos,proyecto").eq("id", convId).eq("usuario", user.id).maybeSingle();
     if (!conv) convId = undefined; else docsConv = (conv.documentos as string[]) ?? [];
+    if (conv?.proyecto) {
+      const { data: abierto } = await admin.rpc("elio_proyecto_abierto_de", { u: user.id, p: conv.proyecto });
+      if (!abierto) return json(c, 403, { mensaje: "Este chat está en un proyecto con contraseña. Ábrelo de nuevo para seguir.", codigo: "proyecto_cerrado" });
+    }
+  }
+  // Chat nuevo dentro de un proyecto (Ultra): se valida ANTES de reservar créditos
+  let proyectoNuevo: string | null = null;
+  if (!convId && cuerpo.proyecto) {
+    const pid = String(cuerpo.proyecto);
+    const { data: pr } = await admin.from("proyectos").select("id").eq("id", pid).eq("usuario", user.id).maybeSingle();
+    const { data: abierto } = await admin.rpc("elio_proyecto_abierto_de", { u: user.id, p: pid });
+    if (!pr || !abierto) return json(c, 403, { mensaje: "Abre el proyecto con su contraseña para crear un chat en él.", codigo: "proyecto_cerrado" });
+    if (plan !== "ultra") return json(c, 403, { mensaje: "Mis proyectos es parte del plan Ultra." });
+    const { count } = await admin.from("conversaciones").select("id", { count: "exact", head: true }).eq("proyecto", pid);
+    if ((count ?? 0) >= 10) return json(c, 400, { mensaje: "Este proyecto ya tiene 10 chats, el máximo. Borra o saca alguno para agregar otro.", codigo: "proyecto_lleno" });
+    proyectoNuevo = pid;
   }
   let docNuevo: { id: string; nombre: string } | null = null;
   if (cuerpo.documento) {
@@ -359,7 +375,7 @@ Deno.serve(async (req) => {
 
   if (!convId) {
     const titulo = (texto || docNuevo?.nombre || cuerpo.adjunto?.nombre || "Nuevo chat").replace(/\s+/g, " ").slice(0, 60);
-    const { data: nueva, error } = await admin.from("conversaciones").insert({ usuario: user.id, titulo, documentos: docsConv }).select("id").single();
+    const { data: nueva, error } = await admin.from("conversaciones").insert({ usuario: user.id, titulo, documentos: docsConv, proyecto: proyectoNuevo }).select("id").single();
     if (error) { await admin.rpc("elio_cobrar_consumo", { c: consumoId, costo: 0, creditos: 0 }); return json(c, 500, { mensaje: "No se pudo crear la conversación." }); }
     convId = nueva.id;
   } else if (docNuevo) {

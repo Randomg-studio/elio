@@ -205,39 +205,37 @@ async function cargarEstado() {
 // ---------- Conversaciones ----------
 async function cargarChats() {
   if (!sb) { E.chats = DEMO ? [{ id: 'd1', titulo: 'Plan de marketing para mi bodega' }, { id: 'd2', titulo: 'Tarea de biología' }] : []; return pintarChats(); }
-  const { data } = await sb.from('conversaciones').select('id,titulo,actualizado').order('actualizado', { ascending: false }).limit(60);
+  const { data } = await sb.from('conversaciones').select('id,titulo,actualizado,fijado,proyecto').is('proyecto', null).order('fijado', { ascending: false }).order('actualizado', { ascending: false }).limit(60);
   E.chats = data || []; pintarChats();
 }
 let verTodos = false;
 function pintarChats() {
   const lista = verTodos ? E.chats : E.chats.slice(0, 8);
-  $('#lista-chats').innerHTML = lista.length ? lista.map((c) => `<div class="chat-item ${c.id === E.conv ? 'on' : ''}" data-id="${c.id}"><button class="abrir" title="${esc(c.titulo)}"><svg><use href="#i-burbuja"/></svg><span>${esc(c.titulo)}</span></button><button class="icono borrar" aria-label="Borrar chat" title="Borrar chat"><svg><use href="#i-puntos"/></svg></button></div>`).join('')
+  $('#lista-chats').innerHTML = lista.length ? lista.map((c) => `<div class="chat-item ${c.id === E.conv ? 'on' : ''}" data-id="${c.id}"><button class="abrir" title="${esc(c.titulo)}">${c.fijado ? '<b class="pin" aria-label="Fijado">📌</b>' : '<svg><use href="#i-burbuja"/></svg>'}<span>${esc(c.titulo)}</span></button><button class="icono borrar" aria-label="Opciones del chat" title="Opciones del chat"><svg><use href="#i-puntos"/></svg></button></div>`).join('')
     : '<p class="vacio-chats">Aún no tienes conversaciones.</p>';
   $('#ver-mas').classList.toggle('oculto', verTodos || E.chats.length <= 8);
 }
 $('#ver-mas').addEventListener('click', () => { verTodos = true; pintarChats(); });
 $('#lista-chats').addEventListener('click', async (e) => {
   const it = e.target.closest('.chat-item'); if (!it) return;
-  if (e.target.closest('.borrar')) {
-    if (!confirm('¿Borrar este chat? No se puede deshacer.')) return;
-    if (sb) await sb.from('conversaciones').delete().eq('id', it.dataset.id);
-    E.chats = E.chats.filter((c) => c.id !== it.dataset.id);
-    if (E.conv === it.dataset.id) nuevoChat(); else pintarChats();
-    return;
-  }
+  if (e.target.closest('.borrar')) return abrirMenuChat(it.dataset.id, e.target.closest('.borrar'), null);
   abrirChat(it.dataset.id);
 });
-function nuevoChat() {
-  E.conv = null; $('#mensajes').innerHTML = ''; $('#vacio').classList.remove('oculto'); document.body.classList.add('vacio');
-  $('#titulo-chat').textContent = 'Nuevo chat'; pintarChats(); cerrarLateral();
+function nuevoChat(proyecto = null) {
+  E.proyecto = proyecto || null; E.conv = null; $('#mensajes').innerHTML = ''; $('#vacio').classList.remove('oculto'); document.body.classList.add('vacio');
+  $('#titulo-chat').textContent = E.proyecto ? `📁 ${E.proyectos?.find((p) => p.id === E.proyecto)?.nombre || 'Proyecto'} · Nuevo chat` : 'Nuevo chat'; pintarChats(); cerrarLateral();
 }
-async function abrirChat(id) {
+async function abrirChat(id, info = null) {
   E.conv = id; pintarChats(); cerrarLateral();
-  const c = E.chats.find((x) => x.id === id); $('#titulo-chat').textContent = c?.titulo || 'Chat';
+  const c = info || E.chats.find((x) => x.id === id);
+  E.proyecto = info?.proyecto || null;
+  const pn = E.proyecto ? E.proyectos?.find((p) => p.id === E.proyecto)?.nombre : null;
+  $('#titulo-chat').textContent = (pn ? `📁 ${pn} · ` : '') + (c?.titulo || 'Chat');
   $('#mensajes').innerHTML = ''; $('#vacio').classList.add('oculto'); document.body.classList.remove('vacio');
   if (!sb) return;
-  const { data } = await sb.from('mensajes').select('rol,contenido,adjunto').eq('conversacion', id).order('id').limit(200);
-  for (const m of data || []) m.rol === 'user' ? burbujaYo(m.contenido, m.adjunto) : burbujaElio().pintar(m.contenido, true);
+  const { data, error } = await sb.from('mensajes').select('id,rol,contenido,adjunto').eq('conversacion', id).order('id').limit(200);
+  if (!error && !(data || []).length && E.proyecto) { toast('Este proyecto se cerró. Ábrelo de nuevo con su contraseña.'); return abrirProyectos(); }
+  for (const m of data || []) m.rol === 'user' ? burbujaYo(m.contenido, m.adjunto) : burbujaElio().pintar(m.contenido, true, m.id);
   abajo();
 }
 $('#nuevo-chat').addEventListener('click', nuevoChat);
@@ -255,13 +253,17 @@ function burbujaElio() {
   $('#mensajes').append(d);
   const cuerpo = d.querySelector('.cuerpo');
   return {
-    pintar(t, final) {
+    pintar(t, final, mid) {
       cuerpo.innerHTML = md(t);
       cuerpo.querySelectorAll('a').forEach((a) => { a.target = '_blank'; a.rel = 'noopener noreferrer nofollow'; });
       if (final) {
         const acc = document.createElement('div'); acc.className = 'acciones';
         acc.innerHTML = '<button data-a="copiar">📋 Copiar</button>';
         acc.querySelector('button').onclick = () => navigator.clipboard.writeText(t).then(() => toast('Copiado ✔'));
+        if (mid && E.cred?.plan === 'ultra') {
+          const r = document.createElement('button'); r.textContent = '🌿 Rama desde aquí'; r.title = 'Copia el chat hasta esta respuesta para probar otro camino (máximo 5 ramas por chat)';
+          r.onclick = () => crearRama(mid); acc.append(r);
+        }
         cuerpo.append(acc);
       }
     },
@@ -306,7 +308,7 @@ async function enviar(texto, adjunto) {
     const r = await fetch(`${CFG.SUPABASE_URL}/functions/v1/elio-chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', apikey: CFG.SUPABASE_KEY, 'x-elio-dispositivo': idDispositivo(), ...(s?.session ? { Authorization: `Bearer ${s.session.access_token}` } : {}) },
-      body: JSON.stringify(E.invitado ? { texto, invitado: true, historial: E.historialInv } : { conversacion: E.conv, texto, motor: E.motor, ...(adjunto?.documento ? { documento: adjunto.documento } : adjunto ? { adjunto } : {}) }),
+      body: JSON.stringify(E.invitado ? { texto, invitado: true, historial: E.historialInv } : { conversacion: E.conv, texto, motor: E.motor, ...(!E.conv && E.proyecto ? { proyecto: E.proyecto } : {}), ...(adjunto?.documento ? { documento: adjunto.documento } : adjunto ? { adjunto } : {}) }),
     });
     if (!r.ok || !r.body) {
       const j = await r.json().catch(() => ({}));
@@ -314,6 +316,7 @@ async function enviar(texto, adjunto) {
       b.error(j.mensaje || 'No pude responder. Revisa tu conexión.', r.status >= 500 && r.status !== 503 ? () => enviar(texto, adjunto) : null, j.codigo === 'cupo' || j.codigo === 'tope_libre');
       if (j.mejora || j.codigo === 'tope_libre') abrirMejora(j.mensaje);
       if (j.codigo === 'dispositivo') abrirDispositivos(j.mensaje);
+      if (j.codigo === 'proyecto_cerrado') abrirProyectos();
       return;
     }
     const lector = r.body.getReader(), dec = new TextDecoder(); let buf = '', fallo = null;
@@ -326,7 +329,8 @@ async function enviar(texto, adjunto) {
         let ev; try { ev = JSON.parse(linea); } catch { continue; }
         if (ev.tipo === 'conv' && E.conv !== ev.id) {
           E.conv = ev.id;
-          if (!E.chats.some((c) => c.id === ev.id)) { const t = (texto || adjunto?.nombre || 'Nuevo chat').slice(0, 60); E.chats.unshift({ id: ev.id, titulo: t }); $('#titulo-chat').textContent = t; }
+          if (E.proyecto) { const t = (texto || adjunto?.nombre || 'Nuevo chat').slice(0, 60); $('#titulo-chat').textContent = `📁 ${E.proyectos?.find((p) => p.id === E.proyecto)?.nombre || 'Proyecto'} · ${t}`; }
+          else if (!E.chats.some((c) => c.id === ev.id)) { const t = (texto || adjunto?.nombre || 'Nuevo chat').slice(0, 60); E.chats.unshift({ id: ev.id, titulo: t }); $('#titulo-chat').textContent = t; }
           pintarChats();
         }
         if (ev.tipo === 'texto') { acumulado += ev.t; b.pintar(acumulado); abajo(); }
@@ -387,6 +391,179 @@ $$('[data-activar-prueba]').forEach((b) => b.addEventListener('click', async () 
   toast(`¡Listo! Tienes Impulso gratis hasta el ${new Date(data.vence + 'T12:00').toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long' })} 🎉`);
   cargarEstado();
 }));
+
+// ---------- Mis proyectos (Ultra), ramas, fijar y descargar ----------
+const vistasProy = ['proy-lista-vista', 'proy-sin-ultra', 'proy-crear', 'proy-abrir', 'proy-recuperar', 'proy-vista'];
+const verVistaProy = (id) => vistasProy.forEach((v) => { $('#' + v).hidden = v !== id; });
+const horaPE = (f) => new Date(f).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+async function cargarProyectos() {
+  if (!sb || !E.sesion) { E.proyectos = []; return []; }
+  const { data } = await sb.rpc('elio_mis_proyectos'); E.proyectos = data || []; return E.proyectos;
+}
+async function abrirProyectos() {
+  $('#menu-chat').classList.add('oculto');
+  if (!E.sesion) return pedirCuenta('Crea tu cuenta para usar Mis proyectos (plan Ultra).');
+  $('#proyectos').classList.remove('oculto'); cerrarLateral();
+  const lista = await cargarProyectos();
+  if (E.cred?.plan !== 'ultra' && !lista.length) return verVistaProy('proy-sin-ultra');
+  verVistaProy('proy-lista-vista');
+  $('#proy-nuevo').hidden = E.cred?.plan !== 'ultra';
+  $('#proy-lista').innerHTML = lista.map((p) => `<button class="b-doc proy-item" type="button" data-proy="${p.id}"><div class="b-doc-cab"><b>${p.con_clave ? (p.abierto ? '🔓' : '🔒') : '📁'} ${esc(p.nombre)}</b><small>${p.chats}/10 chats${p.abierto && p.abierto_hasta ? ' · abierto hasta las ' + horaPE(p.abierto_hasta) : ''}</small></div>${p.descripcion ? `<p>${esc(p.descripcion)}</p>` : ''}</button>`).join('')
+    || '<p class="nota">Todavía no tienes proyectos. Crea el primero.</p>';
+}
+$('#ver-proyectos').addEventListener('click', abrirProyectos);
+$('#proy-ver-planes').addEventListener('click', () => { $('#proyectos').classList.add('oculto'); abrirPlanes(); });
+$$('[data-proy-volver]').forEach((b) => b.addEventListener('click', abrirProyectos));
+$('#proy-nuevo').addEventListener('click', () => {
+  E.proyEdit = null; $('#proy-crear').reset(); $('#proy-crear-t').textContent = 'Nuevo proyecto';
+  $('#proy-quitar-fila').hidden = true; $('#proy-clave-nota').textContent = 'Contraseña del proyecto (opcional, mínimo 8 caracteres). Es distinta a la de tu cuenta.';
+  verVistaProy('proy-crear'); $('#proy-nombre').focus();
+});
+$('#proy-crear').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const clave = $('#proy-clave').value;
+  if (clave && fuerzaClave(clave) < 2) return toast('Usa una contraseña más segura (12+ caracteres, con números y símbolos).');
+  const args = { nombre: $('#proy-nombre').value, descripcion: $('#proy-desc').value };
+  const r = E.proyEdit
+    ? await sb.rpc('elio_editar_proyecto', { p: E.proyEdit, ...args, clave: $('#proy-quitar').checked ? '' : (clave || null) })
+    : await sb.rpc('elio_crear_proyecto', { ...args, clave });
+  if (r.error) return toast(r.error.message);
+  toast(E.proyEdit ? 'Proyecto actualizado ✔' : 'Proyecto creado ✔');
+  const id = E.proyEdit || r.data; await cargarProyectos(); verProyecto(id);
+});
+$('#proy-lista').addEventListener('click', (e) => { const b = e.target.closest('[data-proy]'); if (b) verProyecto(b.dataset.proy); });
+async function verProyecto(id) {
+  const p = (E.proyectos || []).find((x) => x.id === id); if (!p) return abrirProyectos();
+  E.proyVista = id;
+  if (!p.abierto) {
+    $('#proy-abrir').reset(); $('#proy-abrir-nombre').textContent = p.nombre;
+    $('#proy-abrir-msg').textContent = p.bloqueado_hasta ? `Demasiados intentos. Vuelve a intentarlo a las ${horaPE(p.bloqueado_hasta)} o cambia la contraseña con un código a tu correo.` : 'Escribe la contraseña de este proyecto.';
+    verVistaProy('proy-abrir'); $('#proy-abrir-clave').focus(); return;
+  }
+  const { data, error } = await sb.rpc('elio_chats_proyecto', { p: id });
+  if (error) { await cargarProyectos(); return verProyecto(id); }
+  verVistaProy('proy-vista');
+  $('#proy-vista-nombre').textContent = p.nombre; $('#proy-vista-desc').textContent = p.descripcion || '';
+  $('#proy-cerrar-llave').hidden = !p.con_clave;
+  const n = (data || []).length;
+  $('#proy-tope').hidden = n < 8; $('#proy-tope').textContent = n >= 10 ? 'Este proyecto llegó a 10 chats, el máximo. Borra o saca alguno para agregar otro.' : `Te quedan ${10 - n} chat${10 - n === 1 ? '' : 's'} en este proyecto (máximo 10).`;
+  $('#proy-chat-nuevo').disabled = n >= 10 || E.cred?.plan !== 'ultra';
+  E.proyChats = data || [];
+  $('#proy-chats').innerHTML = (data || []).map((c) => `<div class="chat-item proy-chat" data-id="${c.id}"><button class="abrir" type="button">${c.fijado ? '📌' : c.rama_de ? '🌿' : '💬'} <span>${esc(c.titulo)}</span></button><button class="icono borrar" type="button" aria-label="Opciones del chat"><svg><use href="#i-puntos"/></svg></button></div>`).join('') || '<p class="nota">Este proyecto no tiene chats. Empieza uno nuevo.</p>';
+}
+$('#proy-chats').addEventListener('click', (e) => {
+  const it = e.target.closest('.chat-item'); if (!it) return;
+  const c = E.proyChats.find((x) => x.id === it.dataset.id);
+  if (e.target.closest('.borrar')) return abrirMenuChat(it.dataset.id, e.target.closest('.borrar'), E.proyVista);
+  $('#proyectos').classList.add('oculto'); abrirChat(it.dataset.id, { ...c, proyecto: E.proyVista });
+});
+$('#proy-chat-nuevo').addEventListener('click', () => { $('#proyectos').classList.add('oculto'); nuevoChat(E.proyVista); $('#texto').focus(); });
+$('#proy-abrir').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const { data, error } = await sb.rpc('elio_abrir_proyecto', { p: E.proyVista, clave: $('#proy-abrir-clave').value });
+  if (error) return toast(error.message);
+  if (!data.ok) {
+    $('#proy-abrir-clave').value = '';
+    $('#proy-abrir-msg').textContent = data.motivo === 'bloqueado' ? `Demasiados intentos. Vuelve a intentarlo a las ${horaPE(data.hasta)} o cambia la contraseña con un código a tu correo.` : `Contraseña incorrecta. Te quedan ${data.quedan} intento${data.quedan === 1 ? '' : 's'}.`;
+    return;
+  }
+  toast('Proyecto abierto por 30 minutos 🔓'); await cargarProyectos(); verProyecto(E.proyVista);
+});
+$('#proy-olvide').addEventListener('click', async () => {
+  if (!confirm('¿Enviar un código a tu correo para cambiar la contraseña de este proyecto?')) return;
+  const { error } = await sb.rpc('elio_proyecto_olvide', { p: E.proyVista });
+  if (error) return toast(error.message);
+  $('#proy-recuperar').reset(); verVistaProy('proy-recuperar'); toast('Código enviado a tu correo ✔');
+});
+$('#proy-recuperar').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const nueva = $('#proy-nueva').value;
+  if (fuerzaClave(nueva) < 2) return toast('Usa una contraseña más segura (12+ caracteres, con números y símbolos).');
+  const { error } = await sb.rpc('elio_proyecto_recuperar', { p: E.proyVista, codigo: $('#proy-codigo').value, clave: nueva });
+  if (error) return toast(error.message);
+  toast('Contraseña cambiada. Proyecto abierto 🔓'); await cargarProyectos(); verProyecto(E.proyVista);
+});
+$('#proy-cerrar-llave').addEventListener('click', async () => {
+  await sb.rpc('elio_cerrar_proyecto', { p: E.proyVista });
+  if (E.proyecto === E.proyVista) nuevoChat();
+  toast('Proyecto cerrado 🔒'); abrirProyectos();
+});
+$('#proy-editar').addEventListener('click', () => {
+  const p = E.proyectos.find((x) => x.id === E.proyVista); E.proyEdit = p.id;
+  $('#proy-crear').reset(); $('#proy-crear-t').textContent = 'Editar proyecto';
+  $('#proy-nombre').value = p.nombre; $('#proy-desc').value = p.descripcion || '';
+  $('#proy-quitar-fila').hidden = !p.con_clave;
+  $('#proy-clave-nota').textContent = p.con_clave ? 'Deja la contraseña vacía para no cambiarla.' : 'Contraseña del proyecto (opcional, mínimo 8 caracteres). Es distinta a la de tu cuenta.';
+  verVistaProy('proy-crear');
+});
+$('#proy-borrar').addEventListener('click', async () => {
+  if (!confirm('¿Borrar este proyecto?')) return;
+  const borrarChats = confirm('¿Borrar también sus chats?\n\nAceptar = se borran los chats (no se puede deshacer).\nCancelar = los chats pasan a tu lista general.');
+  const { error } = await sb.rpc('elio_borrar_proyecto', { p: E.proyVista, borrar_chats: borrarChats });
+  if (error) return toast(error.message);
+  if (E.proyecto === E.proyVista) nuevoChat();
+  toast('Proyecto borrado ✔'); cargarChats(); abrirProyectos();
+});
+async function crearRama(mid) {
+  if (!confirm('¿Crear una rama? Se copia este chat hasta esta respuesta para que pruebes otro camino. Máximo 5 ramas por chat.')) return;
+  const { data, error } = await sb.rpc('elio_ramificar', { c: E.conv, hasta: mid });
+  if (error) return toast(error.message);
+  toast('Rama creada 🌿'); const proy = E.proyecto;
+  await cargarChats(); abrirChat(data, { titulo: 'Rama', proyecto: proy });
+}
+// Menú de opciones de un chat
+function abrirMenuChat(id, boton, proyecto) {
+  const m = $('#menu-chat'); E.menuChat = { id, proyecto };
+  const c = proyecto ? E.proyChats.find((x) => x.id === id) : E.chats.find((x) => x.id === id);
+  m.querySelector('[data-op=fijar]').textContent = c?.fijado ? '📌 Quitar de arriba' : '📌 Fijar arriba';
+  m.querySelector('[data-op=fijar]').hidden = !!proyecto;
+  m.querySelector('[data-op=mover]').hidden = E.cred?.plan !== 'ultra' || !!proyecto;
+  m.querySelector('[data-op=sacar]').hidden = !proyecto;
+  const r = boton.getBoundingClientRect();
+  m.style.top = Math.min(r.bottom + 4, innerHeight - 220) + 'px'; m.style.left = Math.max(8, Math.min(r.left - 160, innerWidth - 220)) + 'px';
+  m.classList.remove('oculto');
+}
+document.addEventListener('click', (e) => { if (!e.target.closest('#menu-chat') && !e.target.closest('.borrar')) $('#menu-chat').classList.add('oculto'); });
+$('#menu-chat').addEventListener('click', async (e) => {
+  const op = e.target.closest('[data-op]')?.dataset.op; if (!op) return;
+  const { id, proyecto } = E.menuChat; $('#menu-chat').classList.add('oculto');
+  const c = proyecto ? E.proyChats.find((x) => x.id === id) : E.chats.find((x) => x.id === id);
+  if (op === 'fijar') {
+    const { error } = await sb.rpc('elio_fijar_chat', { c: id, fijar: !c?.fijado });
+    if (error) return toast(error.message);
+    return cargarChats();
+  }
+  if (op === 'mover') {
+    const lista = (await cargarProyectos()).filter((p) => p.abierto);
+    if (!lista.length) return toast('Crea un proyecto (o ábrelo con su contraseña) para mover chats a él.');
+    const n = prompt('¿A qué proyecto lo mueves? Escribe su número:\n' + lista.map((p, i) => `${i + 1}. ${p.nombre} (${p.chats}/10)`).join('\n'));
+    const p = lista[Number(n) - 1]; if (!p) return;
+    const { error } = await sb.rpc('elio_mover_chat', { c: id, p: p.id });
+    if (error) return toast(error.message);
+    toast(`Movido a «${p.nombre}» ✔`); if (E.conv === id) nuevoChat(); return cargarChats();
+  }
+  if (op === 'sacar') {
+    const { error } = await sb.rpc('elio_mover_chat', { c: id, p: null });
+    if (error) return toast(error.message);
+    toast('El chat volvió a tu lista ✔'); await cargarChats(); return verProyecto(proyecto);
+  }
+  if (op === 'descargar') {
+    const { data, error } = await sb.from('mensajes').select('rol,contenido,creado').eq('conversacion', id).order('id').limit(500);
+    if (error || !data?.length) return toast('No se pudo descargar este chat.');
+    const titulo = c?.titulo || 'Chat de Elio';
+    const txt = `# ${titulo}\n\n` + data.map((m) => `**${m.rol === 'user' ? 'Tú' : 'Elio'}** · ${new Date(m.creado).toLocaleString('es-PE')}\n\n${m.contenido}`).join('\n\n---\n\n');
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([txt], { type: 'text/markdown;charset=utf-8' }));
+    a.download = titulo.replace(/[^\p{L}\p{N} _-]+/gu, '').slice(0, 50).trim() + '.md'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    return;
+  }
+  if (op === 'borrar') {
+    if (!confirm('¿Borrar este chat? No se puede deshacer.')) return;
+    const { error } = await sb.from('conversaciones').delete().eq('id', id);
+    if (error) return toast('No se pudo borrar.');
+    if (E.conv === id) nuevoChat();
+    if (proyecto) { await cargarProyectos(); verProyecto(proyecto); } else { E.chats = E.chats.filter((x) => x.id !== id); pintarChats(); }
+  }
+});
 
 // ---------- Aviso de cookies (solo almacenamiento necesario; se muestra una vez) ----------
 (() => {
