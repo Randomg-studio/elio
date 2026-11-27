@@ -328,8 +328,62 @@ function botonesValorar(mid) {
   return caja;
 }
 
+// ===== Guardia de privacidad en el navegador (misma lógica que el servidor; manual EL-SEG-001). El dato tapado nunca sale de tu equipo. =====
+const luhn = (d) => {
+  let s = 0, par = false;
+  for (let i = d.length - 1; i >= 0; i--) {
+    let n = d.charCodeAt(i) - 48;
+    if (par) {
+      n *= 2;
+      if (n > 9) n -= 9;
+    }
+    s += n;
+    par = !par;
+  }
+  return s % 10 === 0;
+};
+function taparSecretosWeb(texto) {
+  const h = /* @__PURE__ */ new Set();
+  let t = String(texto ?? "");
+  const tapar = (re, tipo, rep) => {
+    t = t.replace(re, (...a) => {
+      h.add(tipo);
+      return typeof rep === "string" ? rep : rep(...a);
+    });
+  };
+  tapar(/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?(-----END [A-Z ]*PRIVATE KEY-----|$)/g, "secreto", "[SECRETO_ELIMINADO]");
+  tapar(/\b(sk-(?:ant-|proj-|live-|test-)?[A-Za-z0-9_-]{20,}|sb_secret_[A-Za-z0-9_-]{16,}|AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|xox[abprs]-[A-Za-z0-9-]{10,}|AIza[0-9A-Za-z_-]{35}|eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,})/g, "secreto", "[SECRETO_ELIMINADO]");
+  tapar(/\b((?:api[ _-]?key|apikey|access[ _-]?token|secret|token|clave api|clave secreta|service_role)\s*[:=]\s*["']?)([^\s"']{12,})/gi, "secreto", (_m, a) => a + "[SECRETO_ELIMINADO]");
+  tapar(/\b((?:contrase[ñn]a|password|passwd|clave|pin)(?:\s+(?:de|del|mi|tu|su|actual|nueva|[a-záéíóúñ]+)){0,3}\s*[:=]\s*["'«]?)([^\s"'»,;]{4,64})/gi, "contrasena", (_m, a) => a + "[SECRETO_ELIMINADO]");
+  tapar(/\b((?:contrase[ñn]a|password|passwd|clave|pin)(?:\s+(?:de|del|mi|tu|su|actual|nueva|[a-záéíóúñ]+)){0,3}\s+(?:es|era|sería)\s+["'«]?)((?=[^\s"'»,;]*[\d@#$%&*!?_.+-])[^\s"'»,;]{4,64})/gi, "contrasena", (_m, a) => a + "[SECRETO_ELIMINADO]");
+  tapar(/\b((?:c[oó]digo|token|otp)(?:\s+(?:de|del))?(?:\s+(?:verificaci[oó]n|seguridad|sms|acceso|confirmaci[oó]n|yape|whatsapp))+\s*(?:[:=]|es)?\s*)(\d{4,8})\b/gi, "codigo", (_m, a) => a + "[SECRETO_ELIMINADO]");
+  tapar(/\b((?:cvv|cvc|cvv2)\s*[:=]?\s*)(\d{3,4})\b/gi, "tarjeta", (_m, a) => a + "[SECRETO_ELIMINADO]");
+  t = t.replace(/\b(?:\d[ -]?){12,18}\d\b/g, (m) => {
+    const d = m.replace(/\D/g, "");
+    if (d.length >= 13 && d.length <= 19 && luhn(d)) {
+      h.add("tarjeta");
+      return "[SECRETO_ELIMINADO]";
+    }
+    return m;
+  });
+  tapar(/\b((?:cci|cuenta(?:\s+(?:de\s+)?(?:ahorros?|corriente|bancaria|interbancaria))?|n[°º.]?\s*de\s*cuenta|nro\.?\s*de\s*cuenta)\s*(?:n[°º.]?|nro\.?|número)?\s*[:=]?\s*)(\d[\d -]{8,24}\d)/gi, "cuenta", (_m, a) => a + "[SECRETO_ELIMINADO]");
+  tapar(/\b\d{20}\b/g, "cuenta", "[SECRETO_ELIMINADO]");
+  tapar(/\b((?:dni|d\.n\.i\.?|documento de identidad|carn[eé] de extranjer[ií]a|c\.?e\.?|pasaporte)\s*(?:n[°º.]?|nro\.?|número|es)?\s*[:=]?\s*)([A-Z]{0,2}\d{8,12})\b/gi, "documento", (_m, a) => a + "[DOCUMENTO]");
+  return { texto: t, hallados: [...h] };
+}
+const CANARIO_WEB = "ELIO-CANARIO-7Q2X-NO-REVELAR";
+
 const ES_RECORDATORIO = /^\s*(recu[eé]rdame|recordarme|recu[eé]rdales?|an[oó]tame|anota en mi d[ií]a|agrega a mi d[ií]a)\b/i;
 async function enviar(texto, adjunto) {
+  if (texto) {
+    const g = taparSecretosWeb(texto);
+    if (g.hallados.length) {
+      texto = g.texto;
+      toast(g.hallados.length === 1 && g.hallados[0] === 'documento'
+        ? 'Por privacidad tapé un número de documento antes de enviarlo. Puedes usar etiquetas como PERSONA A o [DOCUMENTO].'
+        : 'Por seguridad tapé una clave, código o dato bancario antes de enviarlo: no salió de tu equipo. Si lo compartiste en otro lugar, cámbialo.');
+    }
+  }
   if (E.enviando) return;
   if (!E.invitado && E.sesion && !adjunto && ES_RECORDATORIO.test(texto || '') && !DEMO) {
     E.enviando = true; $('#vacio').classList.add('oculto'); document.body.classList.remove('vacio');
@@ -392,6 +446,7 @@ async function enviar(texto, adjunto) {
         if (ev.tipo === 'creditos' && ev.estado) { E.cred = ev.estado; pintarCreditos(); if (ev.usados > ev.minimo) toast(`Este mensaje usó ${ev.usados} créditos porque la conversación o el documento son largos. Un chat nuevo gasta menos.`); }
         if (ev.tipo === 'error') fallo = ev.mensaje;
         if (ev.tipo === 'mid') midNuevo = ev.id;
+        if (ev.tipo === 'saneado' && typeof ev.t === 'string') { acumulado = ev.t; b.pintar(acumulado); }
       }
     }
     if (fallo && !acumulado) b.error(fallo, () => enviar(texto, adjunto)); else b.pintar(acumulado || '…', true, midNuevo);
@@ -1481,7 +1536,16 @@ async function cargarAdmin() {
   ].map(([k, v]) => `<div><b>${esc(v)}</b><small>${k}</small></div>`).join('');
   $('#admin-pagos').innerHTML = (d.pagos || []).length ? d.pagos.map((p) => `<div class="pago-fila"><div><b>${esc(p.nombre || '')}</b> · ${esc(p.email || '')}<br>${NOMBRE_PLAN[p.plan]} · S/ ${Number(p.monto).toFixed(2)} · Operación <b>${esc(p.operacion)}</b> · ${new Date(p.creado).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' })} <span class="estado ${p.estado}">${p.estado}</span></div>
     <div class="acc">${p.estado === 'pendiente' ? `<button class="boton principal" data-ok="${p.id}">Aprobar</button><button class="boton" data-no="${p.id}">Rechazar</button>` : ''}</div></div>`).join('') : '<p class="nota">Todavía no hay pagos.</p>';
-  cargarIntereses(); cargarConsumo(); cargarEncuestaAdmin(); cargarResenasAdmin(); cargarValoracionesAdmin();
+  cargarIntereses(); cargarConsumo(); cargarEncuestaAdmin(); cargarResenasAdmin(); cargarValoracionesAdmin(); cargarSeguridadAdmin();
+}
+const NOMBRE_EVENTO = { SECRET_BLOCK: 'Claves o datos bancarios tapados', PRIVACY_REDACT: 'Documentos tapados', RATE_LIMIT: 'Ráfagas frenadas', BUSY_LIMIT: 'Mensajes simultáneos frenados', OUTPUT_BLOCK: 'Salidas tapadas', CANARY_LEAK: '⚠️ Intento de sacar instrucciones internas', CRISIS_SUPPORT: 'Apoyo en crisis', FILE_REJECT: 'Archivos rechazados', ACCESS_DENIED: 'Accesos denegados', POLICY_UNAVAILABLE: 'Control no disponible' };
+async function cargarSeguridadAdmin() {
+  if (DEMO) return;
+  const r = await sb.rpc('elio_admin_seguridad'); if (r.error) { $('#admin-seguridad').innerHTML = '<p class="nota">No se pudo cargar.</p>'; return; }
+  const d = r.data || {};
+  $('#admin-seguridad').innerHTML = `<p class="nota">${d.total || 0} eventos${d.canario ? ` · <b>⚠️ ${d.canario} con el dato de control</b>` : ''}. Solo se guarda el tipo, nunca el mensaje.</p>
+    <div class="tabla-int"><div class="fila cab"><span>Evento</span><span>Dónde</span><span>Veces</span><span>Personas</span></div>
+    ${(d.por_codigo || []).map((x) => `<div class="fila"><span>${NOMBRE_EVENTO[x.codigo] || esc(x.codigo)}</span><span>${esc(x.flujo)}</span><span>${x.n}</span><span>${x.personas}</span></div>`).join('') || '<div class="fila"><span>Sin eventos</span></div>'}</div>`;
 }
 async function cargarValoracionesAdmin() {
   if (DEMO) return;
