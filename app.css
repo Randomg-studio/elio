@@ -431,3 +431,24 @@ body.es-invitado .enc-vincular{display:none}
 #comp-cuerpo .a-fila{margin:10px 0}
 #comp-cuerpo input{flex:1;min-width:0}
 #comp-cuerpo input{background:rgba(255,255,255,.05);border:1px solid var(--linea);border-radius:12px;color:var(--texto);padding:9px 12px;font:inherit;font-size:14px}
+
+/* v18: por qué Elio y reseñas */
+.enlace-porque{display:block;margin:18px auto 0;background:none;border:0;color:var(--suave);font:inherit;font-size:13.5px;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.enlace-porque:hover{color:var(--cian2)}
+.tabla-comp{display:grid;gap:0;border:1px solid var(--linea);border-radius:14px;overflow:hidden;font-size:13.5px}
+.tabla-comp .fila{display:grid;grid-template-columns:1.1fr 1fr 1fr 1fr;border-top:1px solid var(--linea)}
+.tabla-comp .fila:first-child{border-top:0}
+.tabla-comp .fila span{padding:9px 10px;display:flex;flex-direction:column;justify-content:center}
+.tabla-comp .fila span:nth-child(2){background:rgba(0,198,235,.08)}
+.tabla-comp .cab span{font-weight:600;font-size:12.5px;color:var(--suave)}
+.tabla-comp small{color:var(--suave);font-size:11.5px}
+.estrellas-ver{color:#ffc94a;letter-spacing:1px}
+.estrellas-elegir{display:flex;flex-direction:row-reverse;justify-content:flex-end;gap:4px;margin:6px 0 10px}
+.estrellas-elegir input{position:absolute;opacity:0;width:1px;height:1px}
+.estrellas-elegir span{font-size:30px;color:#4a5670;cursor:pointer;transition:.1s}
+.estrellas-elegir label:hover span,.estrellas-elegir label:hover~label span,.estrellas-elegir input:checked+span,.estrellas-elegir label:has(input:checked)~label span{color:#ffc94a}
+.estrellas-elegir input:focus-visible+span{outline:2px solid var(--cian);border-radius:6px}
+#resena-texto{width:100%;box-sizing:border-box;background:rgba(255,255,255,.05);border:1px solid var(--linea);border-radius:12px;color:var(--texto);padding:9px 12px;font:inherit;font-size:14px;resize:vertical}
+#resena .check{display:flex;gap:8px;align-items:flex-start;font-size:13px;color:var(--suave);margin:10px 0}
+@media(max-width:560px){.tabla-comp{font-size:12px}.tabla-comp .fila span{padding:7px 6px}}
+#resena-borrar[hidden],#ver-compartir[hidden]{display:none}
