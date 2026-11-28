@@ -179,6 +179,7 @@ async function entrarApp() {
   await cargarEstado();
   if (sb && E.estado && !E.estado.acepto && E.sesion?.user?.user_metadata?.acepto) await sb.rpc('elio_aceptar_terminos');
   await revisarMejora();
+  await revisarPago();
   await cargarChats();
   nuevoChat();
   ponerPreguntaPedir();
@@ -204,6 +205,36 @@ async function revisarPlanLogrin() {
   if (Date.now() - ultima < 6 * 3600_000) return;
   try { await llamarLogrin({ accion: 'estado' }); localStorage.setItem('elio-logrin-revisado', String(Date.now())); } catch {}
 }
+// Aviso de pago (SQL 25): por vencer (3 días antes), vencido (3 días de gracia) o pausado. Una vez por sesión y se puede cerrar.
+const fechaPe = (d) => d ? new Date(d + 'T12:00:00').toLocaleDateString('es-PE', { day: 'numeric', month: 'long' }) : '';
+let pagoAviso = null;
+async function revisarPago(forzar) {
+  if (!sb || DEMO) return;
+  const { data: p } = await sb.rpc('elio_mi_pago'); if (!p) return;
+  pagoAviso = p;
+  if (!['por_vencer', 'vencido', 'pausado'].includes(p.estado) || p.pago_pendiente) return;
+  const clave = `elio-aviso-pago-${p.estado}-${p.vence}`;
+  try { if (!forzar && sessionStorage.getItem(clave)) return; sessionStorage.setItem(clave, '1'); } catch {}
+  const plan = NOMBRE_PLAN[p.plan] || p.plan, monto = `S/ ${Number(p.monto).toFixed(2)} al mes (IGV incluido)`;
+  $('#aviso-pago-t').textContent = p.estado === 'por_vencer' ? `Tu plan ${plan} vence pronto` : p.estado === 'vencido' ? `Tu plan ${plan} venció` : `Tu plan ${plan} está en pausa`;
+  $('#aviso-pago-txt').textContent = p.estado === 'por_vencer'
+    ? `Vence el ${fechaPe(p.vence)}. Renuévalo para seguir con tus créditos y motores sin cortes.`
+    : p.estado === 'vencido'
+    ? `Venció el ${fechaPe(p.vence)} y todavía no registramos tu pago. Lo mantenemos activo 3 días más, hasta el ${fechaPe(p.gracia_hasta)}.`
+    : `Como no registramos tu pago, tu cuenta pasó a Libre. Tus conversaciones siguen guardadas. Reactívalo en un clic cuando quieras.`;
+  $('#aviso-pago-monto').textContent = `Monto: ${monto}.`;
+  $('#aviso-pago-renovar').textContent = p.estado === 'pausado' ? 'Reactívalo con Yape o Plin' : 'Renovar ahora con Yape o Plin';
+  $('#aviso-pago').classList.remove('oculto');
+}
+$('#aviso-pago-renovar').addEventListener('click', () => {
+  if (!pagoAviso) return;
+  $('#aviso-pago').classList.add('oculto');
+  planElegido = pagoAviso.plan;
+  $('#pago-plan').textContent = NOMBRE_PLAN[planElegido]; $('#pago-monto').textContent = PRECIOS[planElegido].toFixed(2);
+  $('#pago-aviso').textContent = ''; $('#pago').classList.remove('oculto');
+});
+// ?pagar (enlace de los correos de aviso): abre el aviso aunque ya se haya visto en esta sesión
+try { if (new URLSearchParams(location.search).has('pagar')) { localStorage.setItem('elio-despues', 'pagar'); history.replaceState(null, '', location.pathname); } } catch {}
 // Plan Libre: aceptar el aviso de uso de conversaciones. Al crear la cuenta ya se aceptó (casilla); las cuentas antiguas lo ven al entrar.
 async function revisarMejora() {
   if (!sb || DEMO) return;
@@ -857,6 +888,7 @@ try { if (new URLSearchParams(location.search).has('resena')) { localStorage.set
 function seguirDespues() {
   let d = null; try { d = localStorage.getItem('elio-despues'); localStorage.removeItem('elio-despues'); } catch {}
   if (d === 'resena') abrirResena();
+  if (d === 'pagar') revisarPago(true);
 }
 $('#porque-opinar').addEventListener('click', abrirResena);
 $('#resena-form').addEventListener('submit', async (e) => {
@@ -1585,7 +1617,13 @@ async function cargarAdmin() {
   ].map(([k, v]) => `<div><b>${esc(v)}</b><small>${k}</small></div>`).join('');
   $('#admin-pagos').innerHTML = (d.pagos || []).length ? d.pagos.map((p) => `<div class="pago-fila"><div><b>${esc(p.nombre || '')}</b> · ${esc(p.email || '')}<br>${NOMBRE_PLAN[p.plan]} · S/ ${Number(p.monto).toFixed(2)} · Operación <b>${esc(p.operacion)}</b> · ${new Date(p.creado).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' })} <span class="estado ${p.estado}">${p.estado}</span></div>
     <div class="acc">${p.estado === 'pendiente' ? `<button class="boton principal" data-ok="${p.id}">Aprobar</button><button class="boton" data-no="${p.id}">Rechazar</button>` : ''}</div></div>`).join('') : '<p class="nota">Todavía no hay pagos.</p>';
-  cargarIntereses(); cargarConsumo(); cargarEncuestaAdmin(); cargarResenasAdmin(); cargarValoracionesAdmin(); cargarSeguridadAdmin(); cargarAprendizajeAdmin();
+  cargarIntereses(); cargarConsumo(); cargarEncuestaAdmin(); cargarResenasAdmin(); cargarValoracionesAdmin(); cargarSeguridadAdmin(); cargarAprendizajeAdmin(); cargarPorCobrarAdmin();
+}
+const ESTADO_PAGO = { por_vencer: 'Por vencer', vencido: 'Vencido (en gracia)', pausado: 'Pausado (pasó a Libre)' };
+async function cargarPorCobrarAdmin() {
+  if (DEMO) return;
+  const r = await sb.rpc('elio_admin_por_cobrar'); if (r.error) { $('#admin-por-cobrar').innerHTML = '<p class="nota">No se pudo cargar.</p>'; return; }
+  $('#admin-por-cobrar').innerHTML = (r.data || []).filter((x) => ESTADO_PAGO[x.estado]).map((x) => `<div class="pago-fila"><div><b>${esc(x.nombre || '')}</b> · ${esc(x.email || '')}<br>${NOMBRE_PLAN[x.plan] || esc(x.plan)} · S/ ${Number(x.monto).toFixed(2)} · vence ${esc(x.vence)} <span class="estado ${x.estado === 'por_vencer' ? 'pendiente' : 'rechazado'}">${ESTADO_PAGO[x.estado]}</span>${x.pago_pendiente ? ' · <b>pago en revisión</b>' : ''}</div></div>`).join('') || '<p class="nota">Nadie por cobrar.</p>';
 }
 const NOMBRE_TEMA = { programacion: 'Programación y Excel', negocio: 'Negocio y ventas', estudio: 'Estudios', redaccion: 'Redacción', idiomas: 'Idiomas', salud: 'Salud', legal: 'Legal', finanzas: 'Finanzas', ideas: 'Ideas', otro: 'Otros' };
 async function cargarAprendizajeAdmin() {
