@@ -5,6 +5,7 @@
 //   { accion: "listar", estado: "pendiente"|"aprobada"|"rechazada"|"todas" }
 //       → { ok, resenas: [{ id, estrellas, texto, nombre, plan, estado, publicar, fecha, correo_vista }] } (máx. 100, más recientes primero)
 //   { accion: "moderar", id, estado: "aprobada"|"rechazada", motivo? } → { ok }
+//   { accion: "por_cobrar" } → formato común R-190 { ok, producto: "elio", generado, items: [...] }
 // Secreto (lo pone el usuario en Edge Functions › Secrets): RESENAS_PUENTE_SECRETO. Nunca en el código.
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
@@ -67,6 +68,13 @@ Deno.serve(async (req) => {
     if (error) return r(500, { ok: false, motivo: "error" });
     if (!data?.length) return r(404, { ok: false, motivo: "no_existe" });
     return r(200, { ok: true });
+  }
+
+  // Lista común «Por cobrar» (R-190): por vencer, vencidos, pausados y recuperados. Sin celular, id ni comprobante.
+  if (b.accion === "por_cobrar") {
+    const { data, error } = await admin.rpc("elio_puente_por_cobrar");
+    if (error) return r(500, { ok: false, motivo: "error" });
+    return r(200, data);
   }
 
   return r(400, { ok: false, motivo: "invalido" });

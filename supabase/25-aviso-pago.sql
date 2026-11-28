@@ -106,8 +106,32 @@ end $$;
 revoke all on function public.elio_admin_por_cobrar() from public, anon;
 grant execute on function public.elio_admin_por_cobrar() to authenticated;
 
--- Comprobación: 4 filas en «true»
+-- Formato común R-190 para la Consola (lo llama la función resenas-puente con firma; nunca la web). Sin celular, id ni comprobante.
+create or replace function public.elio_puente_por_cobrar() returns json
+language sql stable security definer set search_path = public as $$
+  select json_build_object('ok', true, 'producto', 'elio', 'generado', now(), 'items', coalesce((select json_agg(x) from (
+    select * from (
+      -- pendientes de cobro
+      select 'elio' as producto, p.nombre, left(split_part(u.email, '@', 1), 2) || '***@' || split_part(u.email, '@', 2) as correo_vista,
+             p.plan, public.elio_precio(p.plan) as monto, p.plan_vence as vence, public.elio_estado_pago(p.id)->>'estado' as estado,
+             (public.elio_estado_pago(p.id)->>'pago_pendiente')::boolean as pago_pendiente, null::date as pagado_el, null::numeric as monto_pagado
+      from public.perfiles p join auth.users u on u.id = p.id
+      where p.plan <> 'libre' and p.plan_vence is not null and p.plan_vence between public.elio_hoy() - 30 and public.elio_hoy() + 3
+        and public.elio_es_pagado(p.id) and public.elio_estado_pago(p.id)->>'estado' in ('por_vencer','vencido','pausado')
+      union all
+      -- recuperados: pagaron en los últimos 30 días después de recibir un aviso
+      select distinct on (g.id) 'elio', p.nombre, left(split_part(u.email, '@', 1), 2) || '***@' || split_part(u.email, '@', 2),
+             g.plan, public.elio_precio(g.plan), a.vence, 'recuperado', false, (g.revisado at time zone 'America/Lima')::date, g.monto
+      from public.pagos g join public.avisos_pago a on a.usuario = g.usuario and g.revisado > a.enviado
+      join public.perfiles p on p.id = g.usuario join auth.users u on u.id = g.usuario
+      where g.estado = 'aprobado' and g.revisado > now() - interval '30 days'
+    ) t order by vence limit 200) x), '[]'::json))
+$$;
+revoke all on function public.elio_puente_por_cobrar() from public, anon, authenticated;
+
+-- Comprobación: 5 filas en «true»
 select 'avisos_rls' as que, (select rowsecurity from pg_tables where schemaname='public' and tablename='avisos_pago') as ok
 union all select 'cron', exists (select 1 from cron.job where jobname = 'elio-avisos-pago')
 union all select 'mi_pago_no_anon', not has_function_privilege('anon', 'public.elio_mi_pago()', 'execute')
-union all select 'por_cobrar_2fa', pg_get_functiondef('public.elio_admin_por_cobrar()'::regprocedure) like '%elio_es_admin%';
+union all select 'por_cobrar_2fa', pg_get_functiondef('public.elio_admin_por_cobrar()'::regprocedure) like '%elio_es_admin%'
+union all select 'puente_cerrado', not has_function_privilege('authenticated', 'public.elio_puente_por_cobrar()', 'execute');
